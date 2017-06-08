@@ -84,6 +84,18 @@ def deleteScrip(conn):
             conn.commit()
     conn.commit()
     cursor.close()
+
+def main():
+    conn = getConnect()
+    try:
+        query(conn)
+    except Exception as err:
+        print(err)
+    finally:
+        conn.close()
+
+main()
+
     
     
         

@@ -4,11 +4,12 @@
 根据聚类结果向用户推荐商品
 """
 import numpy as np
-import matplotlib.pyplot as plt
 import pymysql
 import time
-#from sklearn.cluster import KMeans
-_DEBUG = False
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
 #根据文件名选择合适的数据库连接
 def getConnect(confFileName):
@@ -28,16 +29,16 @@ def getConnect(confFileName):
 def getOrderList(conn):
     cursor = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = "select id,order_no,user_id from jjg_order where id > 467 and status = 5 and for_seller = 0"
-    effectRowNum = cursor.execute(sql)
+    cursor.execute(sql)
     return cursor
 
 #获取订单所属商品
 def getOrderGoods(cursor,orderId):
     sql = "select goods_id,goods_nums,real_price from jjg_order_goods where order_id = "+str(orderId)
-    effectRowNum = cursor.execute(sql)    
+    cursor.execute(sql)    
     return cursor.fetchall() 
 
-
+#向userCommendGoods表中添加数据user_id,goods_id,goods_nums
 def updataCommendGoods(conn,rows):
     cursor = conn.cursor()
     index = 0
@@ -51,6 +52,7 @@ def updataCommendGoods(conn,rows):
             if index % num == 0:
                 conn.commit()
     cursor.close()
+
 
 def insertToUserGoods(cursor,userId,goodId,goodNum):
     sql = "select id,goods_nums from jjg_user_commend_goods where user_id = "+str(userId)+" and goods_id = "+str(goodId)       
@@ -110,36 +112,22 @@ def createRetDataAndLabel():
     np.save("userLabel.npy",userLabel)
     return userLabel,retData
 
-#获取分类后的用户
-def getUserLabel(vector,retData):
-    km = KMeans(n_clusters = 20)
+#获取聚类结果
+def getClusterResult(retData,clusterNums):
+    km = KMeans(n_clusters = clusterNums)
     result = km.fit_predict(retData)
-    userList = vector[:,0].tolist()
-    
-    userLabel = {}
-    for i in range(len(userList)):
-        userLabel[str(result[i])] = str(userLabel[str(result[i])])+","+str(userList[i])
-    return userLabel
+    return result  
 
-#分割数据
-#返回的数据
-def cutData(result,user,reduceData):
-    fig,ax = plt.subplots()
-        
-    userList = user[:,0],tolist()
-    userLabel = {}
-    for i in range(len(userList)):
-        userLabel[str(result[i])] = str(userLabel[str(result[i])])+","+str(userList[i])
-    
-    
+#对数据进行降维处理
+def reduceData(retData):
+    pca = PCA(n_components = 2)
+    return pca.fit_transform(retData)
+
+#获取结果,并将结果按照.npy保存
 def main():
-    if _DEBUG == True:
-        import pdb
-        pdb.set_trace()
     fileName = "conf.property"
     startTime = time.time()
     print(startTime)
-    
     conn = getConnect(fileName)
     #获取所有已经完成订单数据
     cursor = getOrderList(conn)
@@ -147,14 +135,46 @@ def main():
     #更新userCommendGoods表
     updataCommendGoods(conn,rows)
     #准备聚类数据
-    ndArray = createDataArray(conn)
-    
-    endTime = time.time()
-    print(endTime)
-    print(endTime-startTime)
-
+    createDataArray(conn)
     cursor.close()
     conn.close()
 
+#获取数据
+def getShowData():
+    clusterNum = 5
+    fileName = "conf.property"
+    conn = getConnect(fileName)
+    user,retData = createDataArray(conn)
+    clusterResult = getClusterResult(retData,clusterNum)
+    reduce = reduceData(retData)
+    conn.close()
+    return clusterResult,reduce
 
+#散点图对比展示
+def show():
+    fig,ax = plt.subplots()
+    result,reduce = getShowData()
+    reduce = pd.DataFrame(reduce)
+    
+    ax.plot(reduce.values[:,0],reduce.values[:,1],'<')
+    
+    userLabel = {}
+    for val in result:
+        if userLabel.get(val,False):
+            userLabel[val] += 1
+        else:
+            userLabel[val] = 1
+    
+    for i in range(len(userLabel)):
+        print(str(i)+":"+str(userLabel[i]))
+    
+    for i in range(len(result)):
+        #print(val)
+        if result[i] != 4:
+            reduce = reduce.drop(i)
+        
+    print(len(reduce.values))
+    ax.plot(reduce.values[:,0],reduce.values[:,1],'o')
+    plt.show()
 
+show()
