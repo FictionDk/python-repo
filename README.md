@@ -7,3 +7,4 @@ personal python code backup
 4. flycrawler(机票价格获取并存入mysql)
 5. c-crawler(若干网站的简单爬虫对象)
 6. mud-script(为一款mudGame写的自动化脚本)
+7. face-recognition(人脸比对应用)
