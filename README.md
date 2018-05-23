@@ -6,3 +6,4 @@ personal python code backup
 3. jjg,机器学习实践,根据购买记录将用户聚类,并推荐商品;
 4. flycrawler(机票价格获取并存入mysql)
 5. c-crawler(若干网站的简单爬虫对象)
+6. mud-script(为一款mudGame写的自动化脚本)
