@@ -41,6 +41,58 @@ def upload_image():
     </form>
     '''
 
+"""
+比对两张图片是否有人脸和相似度
+
+:param url_1: 图片1url
+:param url_2: 图片2url
+:return: json
+"""
+@app.route('/face/compare',methods=['POST'])
+def face_compare():
+    request_data = request.get_json()
+    url_old = ''
+    url_new = ''
+    result = {"status":"failed","msg":"参数缺少或错误"}
+    if 'url_old' in request_data:
+        url_old = request_data['url_old']
+    if 'url_new' in request_data:
+        url_new = request_data['url_new']
+    
+    print(url_old,"|",url_new)
+    
+    if url_old is '' or url_new is '':
+        return jsonify(result)
+
+    image1_arr = getImage(url_old)
+    face1_in_image = True
+    face1_codes,face1_in_image = face_encoding(image1_arr,face1_in_image)
+
+    if(not face1_in_image):
+        result = {"result":"failed","msg":"no face in url1"}
+        return jsonify(result)
+
+    image2_arr = getImage(url_new)
+    face2_in_image = True
+    face2_codes,face2_in_image = face_encoding(image2_arr,face2_in_image)
+
+    if(not face2_in_image):
+        result = {"result":"failed","msg":"no face in url2"}
+        return jsonify(result)
+
+    dis_result = face_recognition.face_distance(face2_codes,face1_codes[0])
+    print(dis_result)
+    result = {"result":"success","msg":"compare success","prob":str(1-dis_result[0])}
+    return jsonify(result)
+
+#输入图片url路径,获取np数组
+def getImage(url):
+    r = requests.get(url)
+    img_file = r.content
+    im = Image.open(io.BytesIO(img_file))
+    image_arr = np.array(im)
+    return image_arr
+
 # 需求比对图片获取  /isPass?url=https://...
 @app.route('/face/isPass',methods=['GET'])
 def face_image_get():
