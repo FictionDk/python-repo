@@ -46,19 +46,22 @@ def conf(date,fromdis,todis):
 	fly = Fly(fromdis,todis,"cebu")
 	return url+param,fly
 
-def test():
-	day = date(2019,2,1)
-	url,fly = conf(day.strftime('%Y-%m-%d'),'HKG','MNL');
-	result = request(url)
-	rows = process(result,fly)
-	print("================================")
-	for row in rows:
-		print(row)
+globFromdis = "HKG"
+globTodis = ["CEB","ILO","MNL"]
 
-#HKG,CEB,ILO,
+#HKG,CEB,ILO,MNL
 def main():
 	day = date(2019,2,1)
 	for i in range(3):
+		for value in globTodis:
+			url,fly = conf(day.strftime('%Y-%m-%d'),globFromdis,value)
+			result = request(url)
+			if result is False:
+				print("获取数据失败")
+				continue
+			else:
+				rows = (process(result,fly))
+
 		url,fly = conf(day.strftime('%Y-%m-%d'),'HKG','ILO');
 		result = request(url)
 		if result is False:
@@ -86,4 +89,14 @@ def main():
 		time.sleep(2)
 		print("current date is %s ,flydate been Get"%day.strftime('%Y-%m-%d'))
 		day = day + timedelta(days=1)
+
+def test():
+	day = date(2019,2,1)
+	url,fly = conf(day.strftime('%Y-%m-%d'),'HKG','MNL');
+	result = request(url)
+	rows = process(result,fly)
+	print("================================")
+	for row in rows:
+		print(row)
+
 main()
