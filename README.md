@@ -8,3 +8,6 @@ personal python code backup
 5. c-crawler(若干网站的简单爬虫对象)
 6. mud-script(为一款mudGame写的自动化脚本)
 7. face-recognition(人脸比对应用)
+
+### 文件远程传送
+`scp -r ../base-api-test/* passcloud@192.168.110.86:~/python3test`
