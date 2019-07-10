@@ -14,11 +14,12 @@ def build_consumable():
     dat["consumableUnit"] = "孔"
     dat["consumableBatch"] = "1"
     dat["availableDate"] = "2022-10"
-    # dat["operation"] = "入库"
+    dat["operation"] = "入库"
     return dat
 
 def get_url():
-    return "http://192.168.110.47:8006/api/"
+    # return "http://192.168.110.47:8006/api/"
+    return "http://127.0.0.1:8006/api/"
 
 def build_header():
     return "19053009","6f55d4d1-b2b2-4cb6-9125-14c3ac05d01c"
