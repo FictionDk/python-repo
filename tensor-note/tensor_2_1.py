@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import tensorflow.compat.v1 as tf
+import numpy as np
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -49,12 +50,58 @@ def data_example():
             [0.2,0.3],[0.3,0.4],[0.4,0.5]
         ]}))
 
+def data_full_example():
+    BATCH_SIZE = 8
+    seed = 23455
+    # 基于种子产生随机数
+    rng = np.random.RandomState(seed)
+    # 随机返回32行2列的矩阵
+    X = rng.rand(32,2)
+    # 从X中取出1行,判断如果和小于1,给Y赋值1(正确答案)
+    # 如果和不小于1,给Y赋值0
+    Y = [[int(x0 + x1 < 1)] for (x0,x1) in X]
+    print(X)
+    print(Y)
+    # 定义神经网络输入,参数,和输出;定义前向传播过程
+    x = tf.placeholder(tf.float32,shape=(None,2))
+    y_ = tf.placeholder(tf.float32,shape=(None,1))
+
+    w1 = tf.Variable(tf.random.normal([2,3],stddev=1,seed=1))
+    w2 = tf.Variable(tf.random.normal([3,1],stddev=1,seed=1))
+
+    a = tf.matmul(x,w1)
+    y = tf.matmul(a,w2)
+    # 定义损失函数及反向传播方法
+    loss = tf.reduce_mean(tf.square(y - y_))
+    train_step = tf.train.GradientDescentOptimizer(0.001).minimize(loss)
+
+    with tf.Session() as sess:
+        init_op = tf.global_variables_initializer()
+        sess.run(init_op)
+        # 未训练的参数值
+        print(sess.run(w1))
+        print(sess.run(w2))
+
+        # 训练模型
+        STEPS = 30000
+        for i in range(STEPS):
+            start = (i * BATCH_SIZE) % 32
+            end = start + BATCH_SIZE
+            sess.run(train_step,feed_dict={x:X[start:end],y_:Y[start:end]})
+            if i % 500 == 0:
+                tatol_loss = sess.run(loss,feed_dict={x:X,y_:Y})
+                print("%d traing loss on all date is %g" % (i,tatol_loss))
+        print(sess.run(w1))
+        print(sess.run(w2))
+
 def main():
     # data_type_test()
     # data_oper_test()
     # data_sess_test()
     # data_variable()
-    data_example()
+    # `data_example()
+    data_full_example()
+
 
 if __name__ == "__main__":
     main()
