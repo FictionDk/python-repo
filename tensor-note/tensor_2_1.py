@@ -4,11 +4,13 @@ import numpy as np
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+# 张量
 def data_type_test():
     a = tf.constant([1.0,2.0])
     b = tf.constant([3.0,4.0])
     print(a + b)
 
+# 图定义
 def data_oper_test():
     # 定义两阶张量
     x = tf.constant([[1.0,2.0]])
@@ -17,6 +19,7 @@ def data_oper_test():
     y = tf.matmul(x,w)
     return y
 
+# 会话
 def data_sess_test():
     y = data_oper_test()
     print(y)
@@ -99,7 +102,7 @@ def main():
     # data_oper_test()
     # data_sess_test()
     # data_variable()
-    # `data_example()
+    # data_example()
     data_full_example()
 
 
