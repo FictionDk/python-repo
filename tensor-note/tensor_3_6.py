@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import tensorflow.compat.v1 as tf
+import tensorflow as tenf
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -17,16 +18,17 @@ def get_base_data():
     Y_c = [['red' if y else 'blue'] for y in Y_]
     X = np.vstack(X).reshape(-1,2)
     Y_ = np.vstack(Y_).reshape(-1,1)
-    print(X)
-    print(Y_)
-    print(Y_c)
+    # print(X)
+    # print(Y_)
+    # print(Y_c)
     plt.scatter(X[:,0],X[:,1], c=np.squeeze(Y_c))
+    plt.show()
     return X,Y_,Y_c
 
 # 定义神经网络的输入,参数和输出;定义前向传播过程
 def get_weight(shape, regularizer):
     w = tf.Variable(tf.random.normal(shape),dtype=tf.float32)
-    tf.add_to_collection('losses',tf.contrib.layers.l2_regularizer(regularizer)(w))
+    tf.add_to_collection('losses',tenf.contrib.layers.l2_regularizer(regularizer)(w))
     return w
 
 def get_biass(shape):
@@ -57,7 +59,7 @@ def main():
         for i in range(STEPS):
             start = (i * BATCH_SIZE) % 300
             end = start + BATCH_SIZE
-            sess.run(train_step,feed_dict={x:X[start:end],y_:Y_[start,end]})
+            sess.run(train_step,feed_dict={x:X[start:end],y_:Y_[start:end]})
             if i % 200 == 0:
                 loss_mse_v = sess.run(loss_mse,feed_dict={x:X,y_:Y_})
                 print("After %d steps, loss is: %f" % (i,loss_mse_v))
