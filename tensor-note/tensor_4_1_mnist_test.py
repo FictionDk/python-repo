@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
 import tensorflow.compat.v1 as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import tensor_4_1_mnist_forward as mnist_forward
 import tensor_4_1_mnist_backward as mnist_backward
 import time
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 TEST_INTERVAL_SECS = 5
 
 def test(mnist):
