@@ -14,7 +14,7 @@ def build_consumable():
     dat["consumableUnit"] = "孔"
     dat["consumableBatch"] = "1"
     dat["availableDate"] = "2022-10"
-    dat["operation"] = "入库999999999"
+    dat["operation"] = "入库"
     return dat
 
 def get_url():
