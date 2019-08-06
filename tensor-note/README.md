@@ -25,3 +25,37 @@ In[]: mnist_data.train # 训练集
                 .validation # 验证集
                 .test # 测试集
 ```
+
+#### 4.1.2 tf常用函数
+
+1. `tf.get_collection("")`从集合中取出全部变量生成一个列表
+2. 张量计算
+```
+# IPython
+import tensorflow.compat.v1 as tf
+x = tf.constant([[1,2],[2,3]])
+y = tf.constant([[1,1],[2,2]])
+z = tf.add(x,y)
+print(z)
+# OUT[1]: Tensor("Add:0",shape=(2,2),dtype=int32)
+with tf.Session() as sess:
+    print(sess.run(z))
+# OUT[2]:
+[[2,3]
+ [4,5]]
+```
+3. 张量转换:
+```
+import numpy as np
+A = tf.convert_to_tensor(np.array[[1,1,2,4],[3,4,8,5]])
+print(A)
+# OUT[3]: Tensor("Const_3:0",shape(2,4),dtype=int32)
+b = tf.cast(A,tf.float32)
+print(b)
+# OUT[3]: Tensor("Const:0",shape(2,4),dtype=float32)
+with tf.Session() as sess:
+    print(sess.run(b))
+# OUT[4]:
+[[1. 1. 2. 4.]
+ [3. 4. 8. 5.]]
+```
