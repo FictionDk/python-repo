@@ -64,26 +64,26 @@ with tf.Session() as sess:
 
 #### 5.1.1 全连接NN
 
-每个神经元与前后相邻层的每一个神经元都有连接关系，输入是特征，输出为预测的结果  
+每个神经元与前后相邻层的每一个神经元都有连接关系，输入是特征，输出为预测的结果
 
-参数个数：∑（前层 × 后层 + 后层）  
+参数个数：∑（前层 × 后层 + 后层）
 
 #### 5.1.2 卷积
 
-卷积是一种有效提取图片特征的方法。一般用一个正方形卷积核，遍历图片上的每一个像素点。图片与卷积核重合区域内相对应的每一个像素值乘卷积核内相对应点的权重，然后求和，再加上偏置后，最后得到输出图片中的一个像素值。 
+卷积是一种有效提取图片特征的方法。一般用一个正方形卷积核，遍历图片上的每一个像素点。图片与卷积核重合区域内相对应的每一个像素值乘卷积核内相对应点的权重，然后求和，再加上偏置后，最后得到输出图片中的一个像素值。
 
 输出图片边长=（输入图片边长–卷积核长+1）/步长，
 （ 5 – 3 + 1）/ 1 = 3，输出图片是 3x3 的分辨率，用了 1 个卷积核，输出深度是 1，最后输出的是 3x3x1 的图片。
 `(32 - 5 + 1) / 1 = 28`
 
-全0填充:  
-在输入图片周围进行全零填充，这样可以保证输出图片的尺寸和输入图片一致。  
+全0填充:
+在输入图片周围进行全零填充，这样可以保证输出图片的尺寸和输入图片一致。
 
 #### 5.1.3 池化Pooling
 
-最大池化: `tf.nn.max_pool`  
-平均池化: `tf.nn.avg_pool`  
-池化参数: 
+最大池化: `tf.nn.max_pool`
+平均池化: `tf.nn.avg_pool`
+池化参数:
 ```
 pool = tf.nn.max_pool(
     输入描述: eg. [batch(批处理数量),28(行分辨率),28(列分辨率),6(通道数)],
@@ -94,3 +94,24 @@ pool = tf.nn.max_pool(
 ```
 
 全0填充池化后输出尺寸=输入尺寸/步长=28/2=14
+
+
+### 5.2 tfRecord的制作与读取
+
+> 20190817踩坑实录
+
+[使用新版本tf.data保存和加载图片数据集](https://tensorflow.google.cn/beta/tutorials/load_data/images)
+[读取数据后,sess.run()卡住的解决方案](https://blog.csdn.net/weixin_43413958/article/details/84886940)
+[从tfrecords中读取数据时，运行sess.run()时卡住，无法继续运行下去](https://blog.csdn.net/wenrouruwanlian_qy/article/details/92657583)
+[tf.data API 使用总结](https://blog.csdn.net/weixin_42499236/article/details/83998139)
+[tfRecord 官方文档](https://www.tensorflow.org/tutorials/load_data/tf_records?hl=zh-cn)
+
+```python
+# features数据集读取数据
+img = tf.decode_raw(features['img_raw'],tf.uint8)
+# 转换和变形
+img = tf.reshape(img,[32,32,3])
+img = tf.cast(img,tf.float32) * (1.0 / 255)
+label = tf.cast(features['label'],tf.float32)
+```
+
