@@ -23,6 +23,7 @@ def data_oper_test():
 def data_sess_test():
     y = data_oper_test()
     print(y)
+    print(type(y))
     with tf.Session() as sess:
         print(sess.run(y))
 
@@ -100,10 +101,10 @@ def data_full_example():
 def main():
     # data_type_test()
     # data_oper_test()
-    # data_sess_test()
+    data_sess_test()
     # data_variable()
     # data_example()
-    data_full_example()
+    # data_full_example()
 
 
 if __name__ == "__main__":
