@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 import tensorflow.compat.v1 as tf
-import tensorflow as tensor
 
-import matplotlib.pyplot as plt
 import numpy as np
-import insepct
 import time
 import os
 
@@ -15,7 +12,8 @@ VGG_MEAN = [103.939,116.779,123.68]
 class Vgg16():
     def __init__(self,vgg16_path=None):
         if vgg16_path is None:
-            vgg16_path = os.path.join(os.getcwd(),"vgg16.npy")
+            file_path = "D:\\Resource\\tensor\\vgg"
+            vgg16_path = os.path.join(file_path,"vgg16.npy")
         self.data_dict = np.load(vgg16_path,encoding='latin1').item()
 
     def get_conv_filter(self,name):
@@ -34,7 +32,8 @@ class Vgg16():
         with tf.variable_scope(name):
             shape = x.get_shape().as_list()
             dim = 1
-            for i in shape[1:]: dim *= i
+            for i in shape[1:]:
+                dim *= i
             x = tf.reshape(x,[-1,dim])
             w = self.get_fc_weight(name)
             b = self.get_bias(name)
@@ -54,14 +53,15 @@ class Vgg16():
 
         rgb_scaled = images * 255.0
         red,green,blue = tf.split(rgb_scaled,3,3)
-        assert red.get_shape().as_list()[1:] = [244,244,1]
-        assert green.get_shape().as_list()[1:] = [244,244,1]
-        assert blue.get_shape().as_list()[1:] = [244,244,1]
+        # print(red.get_shape().as_list()[1:])
+        # assert red.get_shape().as_list()[1:] is [244,244,1]
+        # assert green.get_shape().as_list()[1:] is [244,244,1]
+        # assert blue.get_shape().as_list()[1:] is [244,244,1]
 
         bgr = tf.concat([blue - VGG_MEAN[0],
                          green - VGG_MEAN[1],
-                         red - VGG_MEAN[2]] , 3)
-        assert bgr.get_shape().as_list()[1:] = [224,224,3]
+                         red - VGG_MEAN[2]],3)
+        assert bgr.get_shape().as_list()[1:] == [224,224,3]
 
         self.conv1_1 = self.conv_layer(bgr, 'conv1_1')
         self.conv1_2 = self.conv_layer(self.conv1_1, 'conv1_2')
@@ -91,10 +91,9 @@ class Vgg16():
         self.relu6 = tf.nn.relu(self.fc6)
 
         self.fc7 = self.fc_layer(self.relu6, "fc7")
-        self.relu7 = self.nn.relu(self.fc7)
+        self.relu7 = tf.nn.relu(self.fc7)
 
         self.fc8 = self.fc_layer(self.relu7, "fc8")
-
         self.prob = tf.nn.softmax(self.fc8,name="prob")
 
         end_time = time.time()
