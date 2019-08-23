@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import requests
+import time
 
 def get_dat(typ):
     if "consumstore" == typ:
@@ -52,5 +53,8 @@ def consumstore_mock():
     dat_post(typ,consumstore_dat)
 
 if __name__ == "__main__":
-    for i in range(4000):
+    start_time = time.time()
+    for i in range(2000):
         consumstore_mock()
+    end_time = time.time()
+    print("Time consuming: %f s" % (end_time - start_time))
