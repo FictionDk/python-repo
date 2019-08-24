@@ -18,14 +18,12 @@ def load_image(path):
     ax0.set_xlabel(u'Original Pictrue')
     ax0.imshow(img)
 
-    print(img.shape)
+    # print(img.shape)  # (width,length,channel)
 
     short_edge = min(img.shape[:2])
     print("short_edge: ",short_edge)
     y = (img.shape[0] - short_edge) / 2
     x = (img.shape[1] - short_edge) / 2
-    print("y: %d, x: %d." % (y + short_edge,x + short_edge))
-    print("y: %s, x: %s." % (type(y + short_edge),type(x + short_edge)))
     crop_img = img[int(y):int(y + short_edge), int(x):int(x + short_edge)]
 
     ax1 = fig.add_subplot(132)
@@ -42,4 +40,4 @@ def load_image(path):
     return img_ready
 
 def percent(val):
-    return '%.2%%' % (val * 100)
+    return '%.2f%%' % (val * 100)
