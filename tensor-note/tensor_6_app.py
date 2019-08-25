@@ -25,7 +25,8 @@ with tf.Session() as sess:
     for n,i in enumerate(top5):
         values.append(probability[0][i])
         bar_label.append(labels[i])
-        print("label:%s; value:%d " % (labels[i],probability[0][i]))
+        print("label:%s; value:%s; percent:%s " %
+            (labels[i],str(probability[0][i]),utils.percent(probability[0][i])))
 
     ax = fig.add_subplot(111)
     ax.bar(range(len(values)), values, tick_label=bar_label,width=0.5,fc='g')
