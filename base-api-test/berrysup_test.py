@@ -1,38 +1,24 @@
 # -*- coding: utf-8 -*-
 import requests
 import time
+from mock_data import MockData
 
-def get_dat(typ):
-    if "consumstore" == typ:
-        return build_consumable()
-    else:
-        return None
-
-def build_consumable():
-    dat = {}
-    dat["consumableName"] = "HBsAg"
-    dat["consumableNum"] = "1"
-    dat["consumableUnit"] = "孔"
-    dat["consumableBatch"] = "1"
-    dat["availableDate"] = "2022-10"
-    dat["operation"] = "入库"
-    return dat
+failed_count = {}
 
 def get_url():
-    # return "http://192.168.110.47:8006/api/"
     return "http://127.0.0.1:8006/api/"
 
 def build_header():
     return "19053009","6f55d4d1-b2b2-4cb6-9125-14c3ac05d01c"
 
-def dat_post(typ,dat):
-    url = get_url() + typ + "/save"
+def dat_post(path,dat):
+    url = get_url() + path
     code,key = build_header()
     header = {}
     header["stationcode"] = code
     header["secretkey"] = key
     r = requests.post(url,json=dat,headers=header)
-    return req_result(r)
+    return r
 
 def req_result(re):
     rdict = re.json()
@@ -47,14 +33,28 @@ def req_result(re):
         result["body"] = rdict
     return result
 
-def consumstore_mock():
-    typ = "consumstore"
-    consumstore_dat = get_dat(typ)
-    dat_post(typ,consumstore_dat)
+def mock_test(index):
+    global failed_count
+    mock = MockData()
+    path,dat = mock.random_data(index)
+    result = dat_post(path,dat)
+    if not result.ok:
+        if path in failed_count:
+            failed_count[path] += 1
+        else:
+            failed_count[path] = 1
+        req_result(result)
+
+def main():
+    start_time = time.time()
+    count = 0
+    for i in range(80):
+        mock_test(i)
+        count += 1
+    end_time = time.time()
+    print("Time consuming: %f s, Count: %d" % ((end_time - start_time),count))
+    print("Failed Count: ")
+    print(failed_count)
 
 if __name__ == "__main__":
-    start_time = time.time()
-    for i in range(2000):
-        consumstore_mock()
-    end_time = time.time()
-    print("Time consuming: %f s" % (end_time - start_time))
+    main()
