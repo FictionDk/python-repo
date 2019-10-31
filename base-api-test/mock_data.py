@@ -3,7 +3,7 @@
 class MockData():
 
     def __init__(self):
-        self.index = 4;
+        self.index = 8;
 
     def random_data(self,index):
         if index % self.index == 0:
@@ -98,7 +98,7 @@ class MockData():
             "collectResult": "ok",
             "optName": "韦家庚",
             "operation": "入库",
-            "remark": null
+            "remark": None
         }]
         return "storerecord/save",dat
 
@@ -112,7 +112,6 @@ class MockData():
             "operatorName": "黄英",
             "collectDate": "2019-08-12 00:00:00",
             "Remark": ""
-        
         }
         return "plasmacollect/save",dat
 
@@ -133,4 +132,4 @@ class MockData():
             "content": "付款",
             "remark": ""
         }
-        return "/api/log/add",dat
+        return "log/add",dat

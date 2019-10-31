@@ -5,6 +5,8 @@ from mock_data import MockData
 
 failed_count = {}
 
+failed_detail = []
+
 def get_url():
     return "http://127.0.0.1:8006/api/"
 
@@ -21,6 +23,7 @@ def dat_post(path,dat):
     return r
 
 def req_result(re):
+    global failed_detail
     rdict = re.json()
     result = {}
     result["status"] = rdict.get("status")
@@ -31,6 +34,7 @@ def req_result(re):
     else:
         result["status"] = "200"
         result["body"] = rdict
+    failed_detail.append(result)
     return result
 
 def mock_test(index):
@@ -53,8 +57,9 @@ def main():
         count += 1
     end_time = time.time()
     print("Time consuming: %f s, Count: %d" % ((end_time - start_time),count))
-    print("Failed Count: ")
-    print(failed_count)
+    print("Failed Count: %s " % str(failed_count))
+    for msg in failed_detail:
+        print(msg)
 
 if __name__ == "__main__":
     main()
