@@ -2,11 +2,12 @@
 set -e
 REPO_NAME="stpass"
 CONTANER_NAME="face_compare"
+VERSION="1.0"
 
 function remove()
 {
     sudo docker rm -f ${CONTANER_NAME} || true
-    sudo docker rmi ${REPO_NAME}/${CONTANER_NAME} || true
+    sudo docker rmi ${REPO_NAME}/${CONTANER_NAME}:${VERSION} || true
 }
 
 function buildImage()
