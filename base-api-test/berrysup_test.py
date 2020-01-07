@@ -8,10 +8,11 @@ failed_count = {}
 failed_detail = []
 
 def get_url():
-    return "http://127.0.0.1:8006/api/"
+    return "http://192.168.110.13:8006/api/"
+    # return "http://127.0.0.1:8006/api/"
 
 def build_header():
-    return "19053009","6f55d4d1-b2b2-4cb6-9125-14c3ac05d01c"
+    return "4501240455","fc2785bf-6a24-411b-932a-545688c83143"
 
 def dat_post(path,dat):
     url = get_url() + path
@@ -52,7 +53,7 @@ def mock_test(index):
 def main():
     start_time = time.time()
     count = 0
-    for i in range(80):
+    for i in range(8):
         mock_test(i)
         count += 1
     end_time = time.time()
