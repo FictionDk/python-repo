@@ -26,6 +26,7 @@ print(' [*] Waiting for logs. To exit press CTRL+C')
 
 def callback(ch, method, properties, body):
     print(" [x] %r" % body)
+    utils.save_log(body)
 
 channel.basic_consume(
     queue=queue_name, on_message_callback=callback, auto_ack=True)
