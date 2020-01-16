@@ -41,8 +41,27 @@ def get_config():
 def save_log(msg):
     datastr = time.strftime("%Y-%m-%d", time.localtime())
     logfile_name = _get_full_filename(datastr+".log",'logs')
-    with open(logfile_name,'a+',encoding="utf-8") as f:
-        f.write(str(msg)+"\n")
+    body = filter_body(msg)
+    if body is not None:
+        with open(logfile_name,'a+',encoding="utf-8") as f:
+            f.write(filter_body(msg)+"\n")
+
+def filter_body(msg):
+    try:
+        msg = json.loads(msg)
+        msg = json.loads(msg["message"])
+        req_time = msg["@timestamp"]
+        remote_ip = msg["@fields"]["remote_addr"]
+        req_method = msg["@fields"]["request_method"]
+        req_body = msg["@fields"]["request_body"]
+        req_path = msg["@fields"]["request"]
+        status = msg["@fields"]["status"]
+    except JSONDecodeError as e:
+        print(str(msg),"JSONDecodeError")
+        return None
+    else:
+        return req_time+" "+remote_ip+" "+req_method+" "+req_body+" "+req_path+" "+status
+
 
 def test():
     print(get_config())
