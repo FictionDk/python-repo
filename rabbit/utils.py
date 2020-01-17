@@ -47,25 +47,31 @@ def save_log(msg):
             f.write(filter_body(msg)+"\n")
 
 def filter_body(msg):
+    content = {}
     try:
         msg = json.loads(msg)
         msg = json.loads(msg["message"])
-        req_time = msg["@timestamp"]
-        remote_ip = msg["@fields"]["remote_addr"]
-        req_method = msg["@fields"]["request_method"]
-        req_body = msg["@fields"]["request_body"]
-        req_path = msg["@fields"]["request"]
-        status = msg["@fields"]["status"]
-    except JSONDecodeError as e:
-        print(str(msg),"JSONDecodeError")
+        content["req_time"] = msg["@timestamp"]
+        content["remote_ip"] = msg["@fields"]["remote_addr"]
+        content["req_method"] = msg["@fields"]["request_method"]
+        content["req_body"] = msg["@fields"]["request_body"]
+        content["req_path"] = msg["@fields"]["request"]
+        content["status"] = msg["@fields"]["status"]
+    except json.JSONDecodeError as e:
+        print(str(msg),"JSONDecodeError:",str(e))
         return None
     else:
-        return req_time+" "+remote_ip+" "+req_method+" "+req_body+" "+req_path+" "+status
+        return json.dumps(content)
 
-
-def test():
-    print(get_config())
+def _save_test():
     save_log("json")
 
+def _filter_test():
+    body = '{"@timestamp":"16/Jan/2020:19:52:57 +0800","@fields":{"remote_addr":"176.58.124.134",\
+        "remote_user": "","request_method":"","request_body":"","http_referrer": "","request": "\bw<W 0\\",\
+        "status":"400"}}'
+    result = filter_body(body)
+    print(result)
+
 if __name__ == "__main__":
-    test()
+    _filter_test()
