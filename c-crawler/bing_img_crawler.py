@@ -2,13 +2,18 @@
 import requests
 from bs4 import BeautifulSoup
 import time
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGS_DIR = "logs"
+LOG_FILE = "bing_img_crawler.log"
 
 def get_host():
     return 'bing.ioliu.cn'
 
 def get_dir_path():
-    # return 'E://home/pic//'
-    return 'E://OneDrive//Pictures//'
+    return 'D://Doc//OneDrive//Pictures//'
+    # return 'E://OneDrive//Pictures//'
 
 def get_header():
     headers = {
@@ -54,9 +59,22 @@ def save_img(img):
         print("Req failed %s" % str(r.content))
     return False
 
+# 获取文件全路径名称
+def get_full_filename(dirname,filename):
+    dir_name = os.path.join(os.getcwd(),dirname)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    full_name = os.path.join(dir_name,filename)
+    # 确保被创建
+    if not os.path.isfile(full_name):
+        with open(full_name,'a+',encoding="utf-8") as f:
+            f.close()
+    return full_name
+
+
 def log_save(msg,result):
     time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    __fileName = "./log/bing_img_crawler.log"
+    __fileName = get_full_filename(LOGS_DIR,LOG_FILE)
     with open(__fileName,'a+',encoding='utf-8') as fb:
         fb.write(time_str + "--" + str(result) + '-- ' + str(msg) + '\n')
         fb.flush()
