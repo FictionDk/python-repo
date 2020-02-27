@@ -6,12 +6,20 @@ import shutil
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def _get_pic_uri():
-    return os.path.join('E:',os.path.sep,'OneDrive')
+'''
+D://Doc//OneDrive//Pictures//
+E://OneDrive//Pictures//
+'''
+def _get_pic_uri(own_machine=True):
+    if own_machine:
+        return os.path.join('D:',os.path.sep,'Doc','OneDrive')
+    else:
+        return os.path.join('E:',os.path.sep,'OneDrive')
 
 def _get_pic_files():
     path = _get_pic_uri()
     files = os.listdir(path)
+    print(path)
     pic_files = []
     for i in range(len(files)):
         if _is_pic_file(files[i],path):
@@ -72,7 +80,7 @@ def files_move():
         try:
             shutil.move(row[0].value,row[1].value)
         except FileNotFoundError as e:
-            print("FileNotFoundError")
+            print("FileNotFoundError:",e)
 
 def main():
     # build_xlsx()
