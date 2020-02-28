@@ -18,9 +18,8 @@ app = Flask(__name__)
 
 
 def allowd_file(filename):
-    return '.' in filename and \
- filename.rsplit('.',1)[1].lower() in ALLOWED_EXTENTIONS
-             
+    return '.' in filename and filename.rsplit('.',1)[1].lower() in ALLOWED_EXTENTIONS
+
 @app.route('/face',methods=['GET','POST'])
 def upload_image():
     if request.method == 'POST':
@@ -58,9 +57,9 @@ def face_compare():
         url_old = request_data['url_old']
     if 'url_new' in request_data:
         url_new = request_data['url_new']
-    
+
     print(url_old,"|",url_new)
-    
+
     if url_old is '' or url_new is '':
         return jsonify(result)
 
@@ -82,10 +81,10 @@ def face_compare():
 
     dis_result = face_recognition.face_distance(face2_codes,face1_codes[0])
     print(dis_result)
-    result = {"result":"success","msg":"compare success","prob":str(1-dis_result[0])}
+    result = {"result":"success","msg":"compare success","prob":str(1 - dis_result[0])}
     return jsonify(result)
 
-#输入图片url路径,获取np数组
+# 输入图片url路径,获取np数组
 def getImage(url):
     r = requests.get(url)
     img_file = r.content
@@ -97,7 +96,7 @@ def getImage(url):
 @app.route('/face/isPass',methods=['GET'])
 def face_image_get():
     url = request.args.get('url')
-    print("比对"+url+"是否通过")
+    print("比对" + url + "是否通过")
     r = requests.get(url)
     img_file = r.content
     im = Image.open(io.BytesIO(img_file))
@@ -109,7 +108,7 @@ def face_image_get():
     if len(face_codes) == 1:
         dis = is_hekui_face_in(face_codes)
         print(dis)
-        result = {"result":"success","msg":"compare success","prob":str(1-dis[0])}
+        result = {"result":"success","msg":"compare success","prob":str(1 - dis[0])}
     else:
         result = {"result":"failed","msg":"mult face in image"}
     return jsonify(result)
@@ -136,12 +135,12 @@ def face_image_encoding():
         name = request_data['name']
     if 'idcardId' in request_data['idcardId']:
         idcardId = request_data['idcardId']
-    
-    print(url+"|"+name+"|"+idcardId)
-    
+
+    print(url + "|" + name + "|" + idcardId)
+
     if url is None or name is None or idcardId is None:
         return jsonify(result)
-        
+
     r = requests.get(url)
     img_file = r.content
     im = Image.open(io.BytesIO(img_file))
@@ -153,11 +152,11 @@ def face_image_encoding():
     if len(face_locations) is not 1:
         result['msg'] = "照片中存在多个人脸"
         return jsonify(result)
-    
+
     face_im = face_image_get(image_arr,face_locations[0])
-    fileName = 'face_npy\\'+name+"_"+idcardId+"_face.npy"
+    fileName = 'face_npy\\' + name + "_" + idcardId + "_face.npy"
     np.save(file=fileName,arr=face_im)
-    
+
     result["status"] = "success"
     result["msg"] = "save success"
     return jsonify(result)
@@ -166,8 +165,8 @@ def face_image_encoding():
 def detect_faces_in_image(file):
     image = face_recognition.load_image_file(file)
     is_face_in_image = True
-    #face_encodings = face_encoding(image,is_face_in_image)
-    #face_location_print(image,face_location(image),)
+    # face_encodings = face_encoding(image,is_face_in_image)
+    # face_location_print(image,face_location(image),)
     if(is_face_in_image):
         face_compare(face_recognition.face_encodings(image),image)
         result = {"face_name":"XXX","probobiliiity":"60"}
@@ -181,24 +180,24 @@ def is_hekui_face_in(face_encodings):
     return dis_result
 
 def face_compare(face_encodings,image):
-    if(len(face_encodings)==0):
+    if(len(face_encodings) == 0):
         face_encodings = face_recognition.face_encodings(image,face_location(image))
-        if(len(face_encodings)==0):
+        if(len(face_encodings) == 0):
             return False
     face_encoding = face_encodings[0]
     print(type(face_encoding))
     print(face_encoding)
-    #print(face_encodings[0].shape)
+    # print(face_encodings[0].shape)
     face_hekui = np.random.randn(128,1)
     face_hekui = np.load('face_npy\\face_hekui.npy')
     print(face_hekui)
     print(type(face_hekui))
-    #face_model_one = np.load('face_npy\\face_model_one.npy')
+    # face_model_one = np.load('face_npy\\face_model_one.npy')
     print(face_hekui.shape)
     dis_results_1 = face_recognition.face_distance(face_encodings,face_hekui)
-    #dis_results_2 = face_recognition.face_distance(face_encodings,face_model_one)
+    # dis_results_2 = face_recognition.face_distance(face_encodings,face_model_one)
     print(dis_results_1)
-    #print(dis_results_2)
+    # print(dis_results_2)
 
 # 人脸分离并打印:
 def face_location_print(image,face_locations):
@@ -207,7 +206,7 @@ def face_location_print(image,face_locations):
     for face_location in face_locations:
         face_image = face_image_get(image,face_location)
         pil_image = Image.fromarray(face_image)
-        #pil_image.show()
+        # pil_image.show()
         face_image_save(pil_image,i)
         i += 1
 
