@@ -1,4 +1,4 @@
-from demo import FaceAccredit
+from core import FaceAccredit
 import face_utils
 
 def face_init(face_name):
