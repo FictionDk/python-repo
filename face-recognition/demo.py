@@ -1,33 +1,50 @@
 # -*- coding: utf-8 -*-
-import os
-from PIL import Image
-import numpy as np
+import face_recognition
 
-# 根据图片的url
-def image_pixelate(image_url):
-    return None
+class FaceAccredit():
+    # img_arr: 传入的原始图片数组(Must be 8bit gray or RGB image)
+    def __init__(self,img_arr=None):
+        self._face_in_img = False  # 传入图片是否含有人脸
+        self._face_arr_list = None  # 传入头像的人脸解析结果
+        self._face_locations = None  # 传入头像的人脸位置
+        self.set_face_img_arr(img_arr)
 
-# 输入 image: 包含人脸照片
-# 输出 人脸特征np数组
-def image_to_arr(image):
-    return np.array(image)
+    # 设置原始图片数组
+    def set_face_img_arr(self,img_arr):
+        if img_arr is not None:
+            self._img_arr = img_arr
 
-def read_image_from_file(filepath):
-    pil_img = Image.open(filepath)
-    return pil_img
+    # 图片人脸特征抽取
+    def face_encoding(self,img_arr=None):
+        if img_arr is None:
+            img_arr = self._img_arr
+        face_in_img = False
+        face_arr_list = face_recognition.face_encodings(img_arr)
+        if len(face_arr_list) == 0:
+            print("hog模式抽取图片人脸特征失败,启用cnn算法抽取")
+            face_locations = self._face_locations(img_arr)
+            face_arr_list = face_recognition.face_encodings(img_arr,face_locations)
+            if len(face_arr_list) > 0:
+                face_in_img = True
+        else:
+            face_in_img = True
+        self._face_arr_list = face_arr_list
+        return face_arr_list,face_in_img
 
-def _get_image_path(filename):
-    dir_name = os.path.join(os.getcwd(),'assert')
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    full_path = os.path.join(dir_name,filename)
-    return full_path
+    # 获取人脸定位
+    def _face_location(self,image_arr=None):
+        face_locations = face_recognition.face_locations(self._img_arr)
+        if(len(face_locations) == 0):
+            print("hog模式定位图片人脸失败,启用cnn算法")
+            face_locations = face_recognition.face_locations(self._img_arr,number_of_times_to_upsample=1,model="cnn")
+        return face_locations
 
-def test():
-    filepath = _get_image_path('a.png')
-    pil_img = read_image_from_file(filepath)
-    # pil_img.show()
-    img_arr = image_to_arr(pil_img)
-    print(img_arr)
+    # 人脸相似度比对
+    def face_compare(self,face_arr_list):
+        dis_results = face_recognition.face_distance(face_arr_list,self._face_arr_list[0])
+        return dis_results
 
-test()
+    # 人脸图片切割
+    def _img_cutting_by_location(self,image,face_location):
+        top,right,bottom,left = face_location
+        return image[top:bottom,left:right]
