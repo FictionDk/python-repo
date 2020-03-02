@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-from PIL import Image
-import requests
-import face_recognition
 from flask import Flask,jsonify,request
-import io
-import datetime
+import face_utils
+from core import FaceAccredit
 
 app = Flask(__name__)
 
@@ -26,67 +22,58 @@ def face_compare():
         url_old = request_data['url_old']
     if 'url_new' in request_data:
         url_new = request_data['url_new']
-    print(url_old,"|",url_new)
-    print("get url_old begin, ",url_old)
-    a = datetime.datetime.now()
 
     if url_old is '' or url_new is '':
         return jsonify(result)
 
-    image1_arr = getImage(url_old)
-    face1_in_image = True
-    face1_codes,face1_in_image = face_encoding(image1_arr,face1_in_image)
+    img_arr_old = face_utils.read_image_from_url(url_old)
+    face_acc_old = FaceAccredit(img_arr_old)
+    face_arr_old,face_in_old = face_acc_old.face_encoding()
 
-    if(not face1_in_image):
+    if(not face_in_old):
         result = {"result":"failed","msg":"no face in url_old"}
         return jsonify(result)
 
-    b = datetime.datetime.now()
-    print("get url_old end ,",url_old,"use time: ",str((b - a).seconds))
-    print("get url_new begin, ",url_new)
-    a = datetime.datetime.now()
+    img_arr_new = face_utils.read_image_from_url(url_new)
+    face_acc_new = FaceAccredit(img_arr_new)
+    face_arr_new,face_in_new = face_acc_new.face_encoding()
 
-    image2_arr = getImage(url_new)
-    face2_in_image = True
-    face2_codes,face2_in_image = face_encoding(image2_arr,face2_in_image)
-
-    if(not face2_in_image):
+    if(not face_in_new):
         result = {"result":"failed","msg":"no face in url_new"}
         return jsonify(result)
 
-    b = datetime.datetime.now()
-    print("get url_new end, ",url_new,"use time: ",str((b - a).seconds))
-
-    dis_result = face_recognition.face_distance(face2_codes,face1_codes[0])
-    print(dis_result)
+    dis_result = face_acc_old.face_compare(face_arr_new)
     result = {"result":"success","msg":"compare success","prob":str(1 - dis_result[0])}
     return jsonify(result)
 
-# 输入图片url路径,获取np数组
-def getImage(url):
-    r = requests.get(url)
-    img_file = r.content
-    im = Image.open(io.BytesIO(img_file))
-    image_arr = np.array(im)
-    return image_arr
+@app.route('/face/binding',methods=['POST'])
+def face_binding():
+    '''
+    1. 传入参数: 身份证号码,身份证照片url/或用户最新证件照
+    2. 处理流程: 判断照片中是否有人脸,如果有: 生成 `NP_身份证号码.npy`文件
+    3. 返回参数: 如果有头像,返回绑定成功;否则返回绑定失败;
+    '''
+    idcard_id = ''
+    face_img_url = ''
+    result = {"code":"400","msg":"参数缺少或错误"}
+    request_data = request.get_json()
+    if 'idcard_id' in request_data:
+        idcard_id = request_data['idcard_id']
+    if 'face_img_url' in request_data:
+        face_img_url = request_data['face_img_url']
+    if idcard_id is '' or face_img_url is '':
+        return jsonify(result)
 
-# 图片特征抽取
-def face_encoding(image,face_in_image):
-    face_encodings = face_recognition.face_encodings(image)
-    if len(face_encodings) == 0:
-        print("hot模式抽取图片人脸特征失败,启用cnn算法抽取")
-        face_encodings = face_recognition.face_encodings(image,face_location(image))
-        if len(face_encodings) == 0:
-            face_in_image = False
-    return face_encodings,face_in_image
+    img_arr = face_utils.read_image_from_url(face_img_url)
+    face_acc = FaceAccredit(img_arr)
+    face_arr_list,face_in_img = face_acc.face_encoding()
 
-# 获取人脸定位
-def face_location(image):
-    face_locations = face_recognition.face_locations(image)
-    if(len(face_locations) == 0):
-        print("hot模式定位图片人脸失败,启用cnn算法")
-        face_locations = face_recognition.face_locations(image,number_of_times_to_upsample=1,model="cnn")
-    return face_locations
+    if len(face_arr_list) == 1 and face_in_img:
+        face_utils.save_arr_to_file(face_arr_list[0],idcard_id)
+        result = {"code":"0","msg":"绑定成功"}
+    else:
+        result = {"code":"500","msg":"绑定失败"}
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0',port=5001)
