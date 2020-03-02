@@ -16,13 +16,10 @@ def json_test():
     with open(file_fullname,'a+',encoding="utf-8") as f:
         f.write(b + "\n")
 
-def upload_file():
-    url = "http://192.168.110.13"
-    file_fullname = file_utils.get_full_filename("type.json","yoyo")
-    data = None
-    files = {"xxxx":open(file_fullname, "rb").read()}
+def upload_file(url,name,file_fullname):
+    files = {name:open(file_fullname, "rb").read()}
 
-    r = requests.post(url + '/upload',data,files=files)
+    r = requests.post(url + '/upload',None,files=files)
     path = url + "/file"
     is_ok = False
     if r.ok:
@@ -39,4 +36,9 @@ def upload_file():
 
 if __name__ == '__main__':
     json_test()
-    upload_file()
+    url = "http://192.168.110.13"
+    file_fullname = file_utils.get_full_filename("type.json","yoyo")
+    upload_file(url,"type.json",file_fullname)
+
+    pic_fullname = file_utils.get_pic_filename('b.png')
+    upload_file(url,'b.png',pic_fullname)
