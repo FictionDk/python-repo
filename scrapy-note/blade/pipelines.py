@@ -12,3 +12,9 @@ class TextPipeline(object):
             return item
         else:
             return DropItem('Missing Text')
+
+class AuthorPipeline(object):
+
+    def process_item(self, item, spider):
+        print(">>>>author: ",item['author'])
+        return item

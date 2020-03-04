@@ -13,3 +13,10 @@ class QuoteItem(scrapy.Item):
     text = scrapy.Field()
     author = scrapy.Field()
     tags = scrapy.Field()
+
+class DouBanItem(scrapy.Item):
+
+    title = scrapy.Field()
+    author = scrapy.Field()
+    createtime = scrapy.Field()
+    comments = scrapy.Field()

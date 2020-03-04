@@ -66,6 +66,7 @@ ROBOTSTXT_OBEY = True
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'blade.pipelines.TextPipeline': 300,
+    'blade.pipelines.AuthorPipeline': 500
 }
 
 
