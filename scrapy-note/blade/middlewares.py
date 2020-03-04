@@ -6,7 +6,8 @@
 # http://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
-
+from scrapy.downloadermiddlewares.useragent import UserAgentMiddleware
+import random
 
 class BladeSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -54,3 +55,22 @@ class BladeSpiderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+
+# 首先在scrapy的middware中定义一个middware类
+class RandomUserAgentMiddleware(UserAgentMiddleware):
+
+    def __init__(self,user_agent=''):
+        self.user_agent = user_agent
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            user_agent=crawler.settings.get('USER_AGENT_LIST')
+        )
+
+    # 重定义process_requests方法：
+    def process_requests(self, request, spider):
+        rand_use = random.choice(self.user_agent)
+        if rand_use:
+            request.headers.setdefault('User-Agent', rand_use)
