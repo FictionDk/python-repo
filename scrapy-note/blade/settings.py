@@ -66,7 +66,6 @@ ROBOTSTXT_OBEY = True
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'blade.pipelines.TextPipeline': 300,
-    'blade.pipelines.MongoPipeline': 400,
 }
 
 
@@ -90,6 +89,3 @@ ITEM_PIPELINES = {
 # HTTPCACHE_DIR = 'httpcache'
 # HTTPCACHE_IGNORE_HTTP_CODES = []
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
-
-MONGO_URI = 'localhost'
-MONGO_DB = 'blade'
