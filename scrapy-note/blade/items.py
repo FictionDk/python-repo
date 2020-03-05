@@ -16,7 +16,12 @@ class QuoteItem(scrapy.Item):
 
 class DouBanItem(scrapy.Item):
 
-    title = scrapy.Field()
-    author = scrapy.Field()
+    article_id = scrapy.Field()
+    article_title = scrapy.Field()
+    article_content = scrapy.Field()
+    article_url = scrapy.Field()
+    author_url = scrapy.Field()
+    author_name = scrapy.Field()
+    author_id = scrapy.Field()
     createtime = scrapy.Field()
     comments = scrapy.Field()

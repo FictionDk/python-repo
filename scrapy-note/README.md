@@ -37,3 +37,9 @@
 - settings.py：它定义项目的全局配置。
 - middlewares.py：它定义 Spider Middlewares 和 Downloader Middlewares 的实现。
 - spiders：其内包含一个个 Spider 的实现，每个 Spider 都有一个文件。
+
+## Select测试使用
+
+1. xxxSprider.parse方法中读取response.text,写入xxx.html文件
+2. 使用`scrapy shell xxx.html`命令读取文件进入内存
+3. 命令行调试解析,避免调试期间调用页面过频被封ip

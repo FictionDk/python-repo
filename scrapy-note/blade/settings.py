@@ -70,8 +70,8 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    'blade.pipelines.TextPipeline': 300,
-    'blade.pipelines.AuthorPipeline': 500
+    'blade.pipelines.BuildItemIDPipeline': 100,
+    'blade.pipelines.JsonWriterPipeline': 300
 }
 
 

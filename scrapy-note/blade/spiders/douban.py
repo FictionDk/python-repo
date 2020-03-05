@@ -7,29 +7,42 @@ from blade.items import DouBanItem
 class DoubanSpider(scrapy.Spider):
     name = "douban"
     allowed_domains = ["baidu.com"]
-    url = "https://www.douban.com/group/futianzufang/"
+    url = "https://www.douban.com/group/futianzufang/discussion?start="
     # url = "http://top.baidu.com/?fr=mhd_card"
     # url = "https://www.douban.com/gallery/topic/131026/?from=hot_topic_anony_sns"
     # url = 'http://quotes.toscrape.com/'
+    page = 0
 
     def start_requests(self):
         yield scrapy.FormRequest(
-            url=self.url,
+            url=self.url + str(self.page),
             callback=self.parse
         )
 
     def parse(self, response):
-        print(" *************\n %s \n *************" % (response.request.headers))
-        self._save_log(response.text)
-        doubans = response.css('.douban')
-        for douban in doubans:
-            item = DouBanItem()
-            # item['tags'] = douban.css('.tags .tag::text').extract()
+        self.logger.info('Douban page: %s', response.url)
+        result_tables = response.xpath('//table')
+        tr_rows = None
+        if(result_tables is not None and len(result_tables) > 1):
+            tr_rows = result_tables[1].xpath('tr')
+        for tr_row in tr_rows:
+            item = self._build_douban_item(tr_row)
             yield item
+        time.sleep(4)
+        self.page += 25
+        print("URL: %s%s" % (self.url,self.page))
+        if self.page <= 100:
+            yield scrapy.Request(url=self.url + str(self.page), callback=self.parse)
 
-        next = response.css('.pager .next a::attr(href)').extract_first()
-        url = response.urljoin(next)
-        yield scrapy.Request(url=url, callback=self.parse)
+    def _build_douban_item(self,tr_row):
+        td_rows = tr_row.xpath('td')
+        item = DouBanItem()
+        item['article_url'] = td_rows[0].xpath('a/@href').get()
+        item['article_title'] = td_rows[0].xpath('a/@title').get()
+        item['author_url'] = td_rows[1].xpath('a/@href').get()
+        item['author_name'] = td_rows[1].xpath('a/text()').get()
+        item['createtime'] = td_rows[3].xpath('text()').get()
+        return item
 
     def _get_full_filename(self,filename,dir):
         dir_name = os.path.join(os.getcwd(),dir)
