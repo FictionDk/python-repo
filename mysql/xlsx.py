@@ -42,4 +42,4 @@ def test():
         if index % 500 == 0:
             print(index,":",row[0].value,'->',row[1].value)
 
-test()
+# test()

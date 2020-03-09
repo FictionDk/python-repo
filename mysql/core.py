@@ -55,9 +55,11 @@ class Conf():
 def _update_certified_donator(mysql_client,donators):
     sql = "UPDATE certified_donator SET phone_number = '%s' WHERE idcard_id = '%s' "
     cursor = mysql_client._get_cursor()
-    for donator in donators:
+    for index,donator in enumerate(donators):
         cursor.execute(sql % donator)
-    mysql_client.conn.commit()
+        if index % 100 == 0:
+            print("[%d] [%s,%s]sql commit:" % (index,donator[0],donator[1]))
+            mysql_client.conn.commit()
 
 # 将用户数据存入xlsx
 def _save_donators_to_xsls(donators,filename):
@@ -66,7 +68,7 @@ def _save_donators_to_xsls(donators,filename):
 
 # 数据库中获取身份证号,手机号,姓名
 def _get_donators_from_db(mysql_client):
-    sql = "select phone_number,idcard_id from supervise_donator where phone_number is not NULl;"
+    sql = "select phone_number,idcard_id from supervise_donator where phone_number is not NULl order by id desc limit 200;"
     cursor = mysql_client._get_cursor()
     cursor.execute(sql)
     rows = cursor.fetchall()
@@ -76,18 +78,25 @@ def main():
     sup_conf = Conf('sup_donator')
     db_client = MySql(sup_conf.host,sup_conf.port,sup_conf.username,sup_conf.password,'berry_sup')
     donators = _get_donators_from_db(db_client)
+    donators = process(donators)
     _save_donators_to_xsls(donators,'sup_donator')
     db_client = MySql(sup_conf.host,sup_conf.port,sup_conf.username,sup_conf.password,'berry_sup_statistics')
     _update_certified_donator(db_client,donators)
+
+def process(donators_tuple):
+    donators_list = []
+    for donator in donators_tuple:
+        phone_number = donator[0]
+        if phone_number is not '':
+            donators_list.append(donator)
+    return donators_list
 
 def test():
     sup_conf = Conf('sup_donator')
     db_client = MySql(sup_conf.host,sup_conf.port,sup_conf.username,sup_conf.password,'berry_sup')
     donators = _get_donators_from_db(db_client)
-    print(type(donators))
-    for d in donators:
-        print(d)
-
+    donators = process(donators)
+    print(len(donators))
 
 if __name__ == '__main__':
     main()
