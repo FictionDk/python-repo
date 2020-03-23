@@ -73,9 +73,16 @@ for epoch in range(epoch):
 
 print("Final w1 is : \n",w1.numpy())
 
+'''
+y_=(0, 0, 1)，神经网络预测值分别为y1=(0.51, 0.32, 0.17)，y2=(0.22, 0.73, 0.05)，y3=(0.15, 0.17, 0.68)，y4=(0.04, 0.03, 0.93)
+'''
+y_ = [0, 0, 1]
+y1 = [0.51, 0.32, 0.17]
+y2 = [0.22, 0.73, 0.05]
+y3 = [0.15, 0.17, 0.68]
+y4 = [0.04, 0.03, 0.93]
+yy = [y1,y2,y3,y4]
 # 计算两组参数与指定概览之间的距离
-loss_ce1 = tf.losses.categorical_crossentropy([1,0,1],[0.6,0.2,0.2])
-loss_ce2 = tf.losses.categorical_crossentropy([1,0,1],[0.6,0.1,0.3])
-loss_ce3 = tf.losses.categorical_crossentropy([1,0,1],[0.9,0.1,0.6])
 
-print("loss_ce1= %f,loss_ce2= %f,loss_ce3 = %f" % (loss_ce1,loss_ce2,loss_ce3))
+for (i,y) in enumerate(yy):
+    print("loss_ce_%d = %f" % (i,tf.losses.categorical_crossentropy(y_,y)))
