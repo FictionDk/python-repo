@@ -31,7 +31,7 @@ def get_header():
 def get_img_list():
     img_list = []
     url = 'https://' + get_host() + '/?p=1'
-    result = requests.get(url,headers=get_header())
+    result = requests.get(url, headers=get_header())
     print("get_img_list = %s" % result)
     soup = BeautifulSoup(result.content,"html.parser")
     img_rows = soup.find_all(class_='card progressive')
@@ -47,7 +47,7 @@ def get_img_list():
     return img_list
 
 def save_img(img):
-    r = requests.get(img.get('url'))
+    r = requests.get(img.get('url'), headers=get_header())
     if r.ok:
         try:
             with open(get_dir_path() + img.get('name'), 'wb') as fb:
@@ -88,5 +88,13 @@ def main():
     img_list = get_img_list()
     save_img_list(img_list)
 
+def test(url):
+    save_img(url)
+
 if __name__ == "__main__":
     main()
+    # img = {}
+    # img['url'] = 'https://bing.ioliu.cn/photo/MetamorphicRocks_ZH-CN9753251368?force=download'
+    # img['name'] = '柬埔寨吴哥窟的日出 (© Sergio Diaz/Getty Images).jpg'
+    # img['time'] = '2020-03-16 17:16:44'
+    # test(img)
