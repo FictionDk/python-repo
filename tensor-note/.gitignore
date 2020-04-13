@@ -1,3 +1,4 @@
 **/model
 **/num
+**/checkpoint
 **/*.tfrecords
