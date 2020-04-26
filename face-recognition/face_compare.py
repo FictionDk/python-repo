@@ -62,6 +62,52 @@ def face_compare():
     result = {"result":"success","msg":"compare success","prob":str(1 - dis_result[0])}
     return jsonify(result)
 
+"""
+输入个人信息及人脸图片url,分割人脸保存ndarray并使用face_encoding获取特征码
+
+:param url: 图片url
+:param name: 姓名
+:param idcardId: 身份证编号
+:return: json
+"""
+@app.route('/face/encoding',methods=['POST'])
+def face_image_encoding():
+    request_data = request.get_json()
+    url = ''
+    name = ''
+    idcardId = ''
+    result = {"status":"failed","msg":"参数缺少或错误"}
+    if 'url' in request_data:
+        url = request_data['url']
+    if 'name' in request_data:
+        name = request_data['name']
+    if 'idcardId' in request_data['idcardId']:
+        idcardId = request_data['idcardId']
+
+    print(url+"|"+name+"|"+idcardId)
+
+    if url is None or name is None or idcardId is None:
+        return jsonify(result)
+
+    image_arr = getImage(url)
+    face_locations = face_location(image_arr)
+    if len(face_locations) is 0:
+        result['msg'] = "照片中不存在人脸"
+        return jsonify(result)
+    if len(face_locations) is not 1:
+        result['msg'] = "照片中存在多个人脸"
+        return jsonify(result)
+
+    face_im = face_image_get(image_arr,face_locations[0])
+    fileName = 'face_npy\\'+name+"_"+idcardId+"_face.npy"
+    np.save(file=fileName,arr=face_im)
+
+
+# 人脸图片切割
+def face_image_get(image,face_location):
+    top,right,bottom,left = face_location
+    return image[top:bottom,left:right]
+
 # 输入图片url路径,获取np数组
 def getImage(url):
     r = requests.get(url)

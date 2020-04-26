@@ -8,3 +8,5 @@
  - `docker load < xxx.tar`
  - `docker tag <img_id> stpass/base_face:latest`(如果镜像名为none)
  - `sh deploy.sh`
+
+3. docker cp face_compare.py  stpass/face_compare:/face_compare.py
