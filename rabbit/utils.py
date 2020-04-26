@@ -40,11 +40,11 @@ def get_config():
 
 def save_log(msg):
     datastr = time.strftime("%Y-%m-%d", time.localtime())
-    logfile_name = _get_full_filename(datastr+".log",'logs')
+    logfile_name = _get_full_filename(datastr + ".log",'logs')
     body = filter_body(msg)
     if body is not None:
         with open(logfile_name,'a+',encoding="utf-8") as f:
-            f.write(filter_body(msg)+"\n")
+            f.write(filter_body(msg) + "\n")
 
 def filter_body(msg):
     content = {}
@@ -57,6 +57,7 @@ def filter_body(msg):
         content["req_body"] = msg["@fields"]["request_body"]
         content["req_path"] = msg["@fields"]["request"]
         content["status"] = msg["@fields"]["status"]
+        content["uid"] = msg["@fields"]["uid"]
     except json.JSONDecodeError as e:
         print(str(msg),"JSONDecodeError:",str(e))
         return None

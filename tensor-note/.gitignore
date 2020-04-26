@@ -1,3 +1,4 @@
-model
-num
-*.tfrecords
+**/model
+**/num
+**/checkpoint
+**/*.tfrecords

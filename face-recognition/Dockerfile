@@ -1,9 +1,12 @@
-FROM stpass/base_face
+FROM stpass/base_face:1.1
 
 ENV server_port=5001
+ENV TZ=Asia/Shanghai
 
-COPY face_compare.py ./face_compare.py
+RUN mkdir -p "/root/assert"
+
+COPY *.py /root/*.py
 
 expose ${server_port}
 
-CMD [ "python","./face_compare.py" ]
+CMD [ "python","/root/face_compare.py" ]

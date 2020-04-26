@@ -1,4 +1,6 @@
 __pycache__
+**/build/
+**/dist/
 *.pyc
 *.npy
 *.txt
@@ -7,3 +9,5 @@ __pycache__
 *.png
 *.log
 *.dat
+*.ico
+*.spec

@@ -2,7 +2,10 @@
 set -e
 REPO_NAME="stpass"
 CONTANER_NAME="face_compare"
-VERSION="1.0"
+VERSION="1.1"
+
+PWD_DIR="$(cd `dirname $0`; pwd)"
+ASSERT_DIR="${PWD_DIR}/assert"
 
 function remove()
 {
@@ -10,15 +13,21 @@ function remove()
     sudo docker rmi ${REPO_NAME}/${CONTANER_NAME}:${VERSION} || true
 }
 
-function buildImage()
+function build()
 {
-    remove
-    sudo docker build -t ${REPO_NAME}/${CONTANER_NAME} .
+    sudo docker build -t ${REPO_NAME}/${CONTANER_NAME}:${VERSION} .
 }
 
-buildImage
-sudo docker run -d -p 5001:5001 --restart=always --name ${CONTANER_NAME} ${REPO_NAME}/${CONTANER_NAME}
+function run()
+{
+    sudo docker run -d -p 5001:5001 --restart=always --name ${CONTANER_NAME} \
+        -v $PWD_DIR:/root ${REPO_NAME}/${CONTANER_NAME}:${VERSION}
+}
 
-sudo docker volume rm $(sudo docker volume "ls" "-qf" dangling=true) || true
-sudo docker rm -f $(sudo docker ps -a | grep "Exited" | awk '{print $1 }') || true
-sudo docker rmi $(sudo docker images | grep "none" | awk '{print $3}') || true
+remove
+build
+run
+
+#sudo docker volume rm $(sudo docker volume "ls" "-qf" dangling=true) || true
+#sudo docker rm -f $(sudo docker ps -a | grep "Exited" | awk '{print $1 }') || true
+#sudo docker rmi $(sudo docker images | grep "none" | awk '{print $3}') || true

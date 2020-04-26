@@ -8,8 +8,8 @@ failed_count = {}
 failed_detail = []
 
 def get_url():
-    return "http://192.168.110.13:8006/api/"
-    # return "http://127.0.0.1:8006/api/"
+    # return "http://192.168.110.13:8006/api/"
+    return "http://127.0.0.1:8006/api/"
 
 def build_header():
     return "4501240455","fc2785bf-6a24-411b-932a-545688c83143"
@@ -53,7 +53,8 @@ def mock_test(index):
 def main():
     start_time = time.time()
     count = 0
-    for i in range(8):
+    cycles = 1
+    for i in range(cycles * 8):
         mock_test(i)
         count += 1
     end_time = time.time()
