@@ -1,4 +1,6 @@
-# ftp/xftp/shh连接
+# Zanthpara
+
+zanthoxylum and paramiko
 
 ## ftp_file
 ```
@@ -12,6 +14,8 @@ ftp.login('www','wwwadmin021')
 
 ## xftp_utils
 
+> 基于paramiko实现的ssh2连接,包括xftp+ssh2
+
 ### Teleport模块
 
 #### 功能描述
@@ -20,4 +24,7 @@ ftp.login('www','wwwadmin021')
 3. 执行目标远程服务的命令
 
 #### 服务打包
-`pyinstaller -F -i ./assert/e.ico -n Easy xftp_utils.py ../file-opt/file_utils.py`
+`pyinstaller -F -i ./assert/e.ico -n Zanth xftp_utils.py ../file-opt/file_utils.py`
+
+
+### pycryptodome 模块

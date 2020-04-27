@@ -4,11 +4,60 @@ import paramiko
 import time
 import sys
 import json
+from Crypto.Cipher import AES
+from Crypto import Random
+from Crypto.Util.Padding import pad
+from Crypto.Util.Padding import unpad
+from base64 import b64encode
+from base64 import b64decode
 
 WORK_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),os.path.pardir))
 FILE_UTIL_DIR = os.path.join(WORK_DIR,"file-opt")
 sys.path.append(FILE_UTIL_DIR)
 import file_utils
+
+class ZanthAES(object):
+
+    def _add_to_16(self, content):
+        '''对密钥/偏移量进行长度填充
+        Args:
+            content 带填充值
+        Returns: 返回符合规定长度的值(16,24,32 bytes)
+        '''
+        content = bytes(content, encoding='utf8')
+        while len(content) % 16 != 0:
+            content += b'\0'
+        return content
+
+    def ecb_encrypt(self, text, key):
+        '''对内容加密
+        Args: 
+            text 需要加密的原文
+            key 处理密钥
+        Returns: 返回加密后的内容
+        '''
+        key = self._add_to_16(key)
+        text = text.encode('utf-8')
+        cipher = AES.new(key, AES.MODE_ECB)
+        data = cipher.encrypt(pad(text, AES.block_size))
+        return b64encode(data).decode('utf-8')
+
+    def ecb_decrypt(self, text, key):
+        '''对内容解密
+        Args: 
+            text 字符串 需要解密的已加密内容
+            key 字符串 解密需要的密钥
+        Returns: 字符串 返回加密后的内容,解密失败返回None
+        '''
+        try:
+            key = self._add_to_16(key)
+            text = b64decode(text.encode('utf-8'))
+            cipher = AES.new(key, AES.MODE_ECB)
+            pt = unpad(cipher.decrypt(text), AES.block_size)
+            return pt.decode()
+        except(ValueError, KeyError, Exception) as e:
+            print("Incorrect decryption for text: %s from  key: %s; Error= %s" % (text,key,str(e)))
+            return 
 
 class CannotReadFile(RuntimeError):
     pass
@@ -16,24 +65,35 @@ class CannotReadFile(RuntimeError):
 class ConnConfig(object):
 
     def __init__(self):
+        '''初始化
+        Args:
+            _source_conf 源目标连接配置
+            _target_conf 
+            _key 配置密钥
+            _aes 解密对象
+        '''
         source_conf_path = file_utils.get_full_filename('config','source_conf.jl')
         target_conf_path = file_utils.get_full_filename('config','target_conf.jl')
         self._source_conf = self._get_conf_from_file(source_conf_path)
         self._target_conf = self._get_conf_from_file(target_conf_path)
+        self._key = 'Zanthoxylum'
+        self._aes = ZanthAES()
 
     def get_source_conf(self):
         '''读取源服务连接配置
         Returns: user, passwd, ip, port
         '''
         source_list = list(self._source_conf.values())
-        return source_list[0], source_list[1], source_list[2], source_list[3]
+        return source_list[0], self._aes.ecb_decrypt(source_list[1], self._key), \
+            self._aes.ecb_decrypt(source_list[2], self._key), source_list[3]
 
     def get_target_conf(self):
         '''读取目标服务连接配置
         Returns: user, passwd, ip, port
         '''
         target_list = list(self._target_conf.values())
-        return target_list[0], target_list[1], target_list[2], target_list[3]
+        return target_list[0], self._aes.ecb_decrypt(target_list[1], self._key), \
+            self._aes.ecb_decrypt(target_list[2], self._key), target_list[3]
 
     def get_source_pwd(self):
         '''读取源服务文件路径
@@ -82,7 +142,7 @@ class Teleport():
         self.target_trans = None
 
     def __get_prefix(self):
-        return 'berry_sup_statistics_'
+        return 'berry_sup_summary_'
 
     def __get_suffix(self):
         return '.sql.tar.gz'
@@ -141,14 +201,25 @@ def main():
     except Exception as e:
         print(e)
 
-def test():
+def conf_test():
     conn_conf = ConnConfig()
     print(conn_conf.get_source_conf())
     print(conn_conf.get_target_conf())
     print(conn_conf.get_source_pwd())
     print(conn_conf.get_target_pwd())
 
+def aes_test():
+    key = 'Zanthoxylum'
+    text = 'paramiko'
+    aes = ZanthAES()
+    encrypt_data = aes.ecb_encrypt(text, key)
+    print(encrypt_data)
+    print(aes.ecb_decrypt(encrypt_data, key))
+    print(aes.ecb_decrypt("P2wQjONezpgsHlS3fH82tA==", key))
+
+
 if __name__ == '__main__':
     main()
     time.sleep(10)
-    # test()
+    # aes_test()
+    # conf_test()
