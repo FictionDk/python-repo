@@ -5,13 +5,18 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORK_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),os.path.pardir))
 PERSON_DIR = os.path.join(WORK_DIR,"random")
 sys.path.append(PERSON_DIR)
-from random_person import Person
+from core import RandomPerson
+from core import RandomTime
 
 class MockData():
 
     def __init__(self):
         self.index = 8
-        self.person = Person()
+        self.person = RandomPerson()
+        self.timer = RandomTime()
+
+    def _random_datetime(self):
+        return self.timer.random_datetime().strftime('%Y-%m-%d %H:%M:%S')
 
     def random_data(self,index):
         if index % self.index == 0:
@@ -52,7 +57,7 @@ class MockData():
             "township": "",
             "village": "",
             "diseasehistory": "",
-            "registeDate": "2020-01-01 00:00:00"
+            "registeDate": self._random_datetime()
         }
         return "donator/new",dat
 
@@ -62,7 +67,7 @@ class MockData():
         dat["donatorName"] = name
         dat["idcardId"] = idcardId
         dat["operatorName"] = "黎先聪"
-        dat["operatorDate"] = "2020-01-01 00:00:00"
+        dat["operatorDate"] = self._random_datetime()
         return "donator/registe",dat
 
     def build_bodycheck(self):
@@ -82,7 +87,7 @@ class MockData():
             "remark": "",
             "checkResult": "ok",
             "checkperson": "黄凌璘",
-            "createTime": "2020-01-01 00:00:00"
+            "createTime": self._random_datetime()
         }
         return "bodycheck/save",dat
 
@@ -100,7 +105,7 @@ class MockData():
             "alt": "%E2%89%A425u",
             "antiHcv": "negative",
             "antinHiv": "negative",
-            "checkTime": "2020-01-01 00:00:00",
+            "checkTime": self._random_datetime(),
             "checkPerson": "韦生民"
         }
         return "bloodcheck/save",dat
@@ -128,7 +133,7 @@ class MockData():
             "collectinfo": "{\"circulationNumber\":29,\"CycleTimes\": 2}",
             "collectResult": "ok",
             "operatorName": "黄英",
-            "collectDate": "2020-01-01 00:00:00",
+            "collectDate": self._random_datetime(),
             "Remark": ""
         }
         return "plasmacollect/save",dat
@@ -145,7 +150,7 @@ class MockData():
 
     def build_logadd(self):
         dat = {
-            "operateDate": "2020-01-01 00:00:00",
+            "operateDate": self._random_datetime(),
             "operatorName": "",
             "content": "付款",
             "remark": ""
@@ -153,5 +158,5 @@ class MockData():
         return "log/add",dat
 
 def main():
-    person = Person()
-    print(self.person.get_person())
+    mock = MockData()
+    print(mock.build_new())
