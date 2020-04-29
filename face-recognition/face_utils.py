@@ -6,28 +6,71 @@ import io
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def get_assert_path(filename):
+def get_assert_path(filename = None):
+    '''获取静态文件目录路径,文件名为空时返回路径
+    Args: 
+        filename 目录下文件名称
+    Return: 
+        str, 返回文件全路路径,文件名为空时文件夹全路径
+    '''
     dir_name = os.path.join(BASE_DIR,'assert')
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
+    if filename is None:
+        return dir_name
     full_path = os.path.join(dir_name,filename)
     return full_path
 
 def save_arr_to_file(arr,name):
+    '''将npy数组存入文件
+    Args: 
+        arr npy数组
+        name npy保存文件名称
+    '''
     full_path = get_assert_path(name + '.npy')
     np.save(file=full_path,arr=arr)
 
 def image_to_arr(image):
+    '''将二进制图片转换成npy数组
+    Args:
+        image 二进制图片文件
+    '''
     return np.array(image)
 
 def read_image_from_file(filepath):
+    '''通过图片全路径读取文件,返回PIL二进制文件
+    '''
     pil_img = Image.open(filepath).convert('RGB')
     return pil_img
 
 def read_image_from_url(url):
+    '''通过图片url获取图片内容
+    Args: 
+        url strm图片网络存放路径
+    Return:
+        npy数组
+    '''
     r = requests.get(url)
     img_file = r.content
     im = Image.open(io.BytesIO(img_file))
     im = im.convert('RGB')
     image_arr = np.array(im)
     return image_arr
+
+def get_npy_list():
+    '''批量获取npy列表
+    '''
+    path = get_assert_path()
+    files = os.listdir(path)
+    npy_list = []
+    for i in range(len(files)):
+        if _is_npy_file(files[i],path):
+            npy_list.append(np.load(get_assert_path(files[i])))
+    return npy_list
+
+def _is_npy_file(filename,path):
+    full_filename = os.path.join(path,filename)
+    if os.path.isfile(full_filename):
+        return True
+    else:
+        return False

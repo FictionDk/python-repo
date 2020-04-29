@@ -5,8 +5,8 @@ ENV TZ=Asia/Shanghai
 
 RUN mkdir -p "/root/assert"
 
-COPY *.py /root/*.py
+COPY *.py /root/
 
 expose ${server_port}
 
-CMD [ "python","/root/face_compare.py" ]
+CMD [ "python","/root/face_api.py" ]

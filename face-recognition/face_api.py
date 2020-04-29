@@ -5,15 +5,15 @@ from core import FaceAccredit
 
 app = Flask(__name__)
 
-"""
-比对两张图片是否有人脸和相似度
-
-:param url_1: 图片1url
-:param url_2: 图片2url
-:return: json
-"""
 @app.route('/face/compare',methods=['POST'])
 def face_compare():
+    """比对两张图片是否有人脸和相似度
+    Args:
+        url_old: 身份证旧照
+        url_new: 实时拍摄新照
+    Return: 
+        比对相似度,json
+    """
     request_data = request.get_json()
     url_old = ''
     url_new = ''
@@ -74,6 +74,31 @@ def face_binding():
     else:
         result = {"code":"500","msg":"绑定失败"}
     return jsonify(result)
+
+@app.route('/face/identify',methods=['POST'])
+def face_identification():
+    face_img_url = ''
+    result = {"code":"400","msg":"参数缺少或错误"}
+    request_data = request.get_json()
+    if 'face_img_url' in request_data:
+        face_img_url = request_data['face_img_url']
+    if face_img_url is '':
+        return jsonify(result)
+
+    img_arr = face_utils.read_image_from_url(face_img_url)
+    face_acc = FaceAccredit(img_arr)
+    face_arr_list,face_in_img = face_acc.face_encoding()
+    if face_in_img: 
+        face_npy_list = face_utils.get_npy_list()
+        dis_result = face_acc.face_compare(face_npy_list)
+        app.logger(str(dis_result))
+        app.logger(type(dis_result))
+        result = {"code":"0","msg":"识别成功"}
+        return jsonify(result)
+    else:
+        result = {"result":"failed","msg":"no face in url_old"}
+        return jsonify(result)
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0',port=5001)
