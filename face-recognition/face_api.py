@@ -2,6 +2,7 @@
 from flask import Flask,jsonify,request
 import face_utils
 from core import FaceAccredit
+import json
 
 app = Flask(__name__)
 
@@ -91,10 +92,8 @@ def face_identification():
     if face_in_img: 
         face_npy_list = face_utils.get_npy_list()
         dis_result = face_acc.face_compare(face_npy_list)
-        app.logger(str(dis_result))
-        app.logger(type(dis_result))
         result = {"code":"0","msg":"识别成功"}
-        return jsonify(result)
+        return jsonify(dis_result.tolist())
     else:
         result = {"result":"failed","msg":"no face in url_old"}
         return jsonify(result)
