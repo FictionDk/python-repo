@@ -63,14 +63,36 @@ def get_npy_list():
     path = get_assert_path()
     files = os.listdir(path)
     npy_list = []
+    name_list = []
     for i in range(len(files)):
         if _is_npy_file(files[i],path):
             npy_list.append(np.load(get_assert_path(files[i])))
-    return npy_list
+            name_list.append(files[i].replace('.npy',''))
+    return npy_list,name_list
+
+def identifaction_result_build(distance_list, face_name_list, threshold):
+    '''返回身份认证结果
+    Args: 
+        distance_list list, 人脸相似差距识别结果
+        face_name_list list, 对应的人脸身份证id
+        threshold float, 过滤阈值
+    Returns:
+        返回认证相似度大于threshold的结果,包括身份证号和相似度
+    '''
+    identifactions = []
+    if len(distance_list) > 0 and len(distance_list) == len(face_name_list):
+        for i,distance in enumerate(distance_list):
+            prob = 1 - distance
+            if prob > threshold:
+                face_result = {}
+                face_result['idcard_id'] = face_name_list[i]
+                face_result['prob'] = prob
+                identifactions.append(face_result)
+    return identifactions
 
 def _is_npy_file(filename,path):
     full_filename = os.path.join(path,filename)
-    if os.path.isfile(full_filename):
+    if os.path.isfile(full_filename) and '.npy' in filename:
         return True
     else:
         return False

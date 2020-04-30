@@ -18,7 +18,7 @@ def face_compare():
     request_data = request.get_json()
     url_old = ''
     url_new = ''
-    result = {"status":"failed","msg":"参数缺少或错误"}
+    result = {"code": "400", "status":"failed","msg":"参数缺少或错误"}
     if 'url_old' in request_data:
         url_old = request_data['url_old']
     if 'url_new' in request_data:
@@ -32,7 +32,7 @@ def face_compare():
     face_arr_old,face_in_old = face_acc_old.face_encoding()
 
     if(not face_in_old):
-        result = {"result":"failed","msg":"no face in url_old"}
+        result = {"code": "400", "result":"failed","msg":"no face in url_old"}
         return jsonify(result)
 
     img_arr_new = face_utils.read_image_from_url(url_new)
@@ -40,11 +40,11 @@ def face_compare():
     face_arr_new,face_in_new = face_acc_new.face_encoding()
 
     if(not face_in_new):
-        result = {"result":"failed","msg":"no face in url_new"}
+        result = {"code": "400", "result":"failed","msg":"no face in url_new"}
         return jsonify(result)
 
     dis_result = face_acc_old.face_compare(face_arr_new)
-    result = {"result":"success","msg":"compare success","prob":str(1 - dis_result[0])}
+    result = {"code": "0", "result":"success","msg":"compare success","prob":str(1 - dis_result[0])}
     return jsonify(result)
 
 @app.route('/face/binding',methods=['POST'])
@@ -90,13 +90,16 @@ def face_identification():
     face_acc = FaceAccredit(img_arr)
     face_arr_list,face_in_img = face_acc.face_encoding()
     if face_in_img: 
-        face_npy_list = face_utils.get_npy_list()
-        dis_result = face_acc.face_compare(face_npy_list)
-        result = {"code":"0","msg":"识别成功"}
-        return jsonify(dis_result.tolist())
+        face_npy_list, face_name_list = face_utils.get_npy_list()
+        dis_results = face_acc.face_compare(face_npy_list)
+        if dis_results.ndim == 1:
+            identifactions = face_utils.identifaction_result_build(dis_results.tolist(), face_name_list, 0.55)
+            result = {"code": "0", "msg": "identify success", "data": identifactions}
+        else:
+            result = {"code":"500","msg":"identify failed, result ndim is " + str(dis_results.ndim)}
     else:
-        result = {"result":"failed","msg":"no face in url_old"}
-        return jsonify(result)
+        result = {"code":"400","msg":"no face in face_img_url"}
+    return jsonify(result)
 
 
 if __name__ == "__main__":
