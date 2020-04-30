@@ -22,7 +22,7 @@ class FaceAccredit():
         face_arr_list = face_recognition.face_encodings(img_arr)
         if len(face_arr_list) == 0:
             print("hog模式抽取图片人脸特征失败,启用cnn算法抽取")
-            face_locations = self._face_locations(img_arr)
+            face_locations = self._face_location(img_arr)
             face_arr_list = face_recognition.face_encodings(img_arr,face_locations)
             if len(face_arr_list) > 0:
                 face_in_img = True
