@@ -1,7 +1,11 @@
 from PIL import Image
 import numpy as np
 import os
+import requests
+import time
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+failed_detail = []
 
 def _get_assert_path(filename = None):
     dir_name = os.path.join(BASE_DIR,'assert')
@@ -18,26 +22,56 @@ def read_from_arr(name):
     pil_image = Image.fromarray(arr)
     pil_image.show()
 
-def get_npy_files():
-    '''批量获取npy列表
-    '''
-    path = _get_assert_path()
-    files = os.listdir(path)
-    npys = []
-    for i in range(len(files)):
-        if _is_npy_file(files[i],path):
-            npys.append(files[i])
-    return pic_files
+def face_banding():
+    global failed_detail 
+    count = 0
+    faces = _get_face_urls()
+    start_time = time.time()
+    for face in faces:
+        r = requests.post(_get_post_url(),json=face)
+        rdict = r.json()
+        if rdict.get("code") == '0':
+            print("%s banding sucess!" % face['idcard_id'])
+            count += 1
+        else:
+            print("%s banding failed!" % face['idcard_id'])
+            failed_detail.append(face)
+    end_time = time.time()
+    print("Time consuming: %f s, SuccessCount: %d, TotolCount: %d" % ((end_time - start_time),count,len(faces)))
+    if len(failed_detail) > 0:
+        print(failed_detail)
 
-def _is_npy_file(filename,path):
-    full_filename = os.path.join(path,filename)
-    if os.path.isfile(full_filename):
-        return True
+def _get_post_url():
+    return "http://192.168.110.13:5001/face/binding"
+
+def _get_face_urls():
+    faces_file = _get_assert_path('fileupload.log')
+    lines = None
+    faces = []
+    with open(faces_file,'r',encoding="utf-8") as f:
+        lines = f.readlines()
+
+    if lines is not None:
+        for line in lines:
+            face_name, face_url = _build_date_from_line(line)
+            face = {}
+            face['idcard_id'] = face_name.split('_')[0]
+            face['face_img_url'] = face_url
+            faces.append(face)
+    return faces
+
+def _build_date_from_line(line):
+    results = line.split(' ')
+    if len(results) == 5 and _date_symbol_clean(results[4]) == 'True':
+        return _date_symbol_clean(results[2]), _date_symbol_clean(results[3])
     else:
-        return False
+        None, None
+
+def _date_symbol_clean(date):
+    return date.replace('[','').replace(']','').replace('\n', '').replace('\r', '')
 
 # 结果检验
 def result_show():
-    print(get_npy_files())
+    print(face_banding())
 
-result_show()
+face_banding()
