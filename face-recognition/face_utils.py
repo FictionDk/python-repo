@@ -57,14 +57,16 @@ def read_image_from_url(url):
     image_arr = np.array(im)
     return image_arr
 
-def get_npy_list():
+def get_npy_list(batch_count = 100):
     '''批量获取npy列表
     '''
     path = get_assert_path()
     files = os.listdir(path)
     npy_list = []
     name_list = []
+    files = sorted(files, key=lambda x: os.path.getmtime(os.path.join(path,x)))
     for i in range(len(files)):
+        print(files[i])
         if _is_npy_file(files[i],path):
             npy_list.append(np.load(get_assert_path(files[i])))
             name_list.append(files[i].replace('.npy',''))
