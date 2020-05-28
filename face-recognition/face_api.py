@@ -103,6 +103,38 @@ def face_identification():
         result = {"code":"400","msg":"no face in face_img_url"}
     return jsonify(result)
 
+@app.route('/face/livedetect',methods=['POST'])
+def face_livedetect():
+    '''通过连续抓拍的图片实现活体检测
+    :param img_urls 视频抓拍照片list, TODO
+    :param img_url 视频抓拍照片list拼接图片
+    :param idcard_id (可选)身份证号码, 如果有可绑定,没有不做绑定操作
+    :return sucess or failed
+    '''
+    img_urls,img_arrs = [], []
+    img_url = ''
+    min_faces,threshold = 3, 0.6  # 最小包含人脸, 正确率阈值
+    result = {"code":"400","msg":"参数缺少或错误"}
+    request_data = request.get_json()
+    if 'img_url' in request_data:
+        img_url = request_data['img_url']
+    if img_url is '' or 'img_urls' in request_data:
+        img_urls = request_data['img_urls']
+        if type(img_urls) is not list or len(img_urls) < min_faces:
+            return jsonify(result)
+        else:
+            result["msg"] = "暂不支持图片list鉴定"
+            return jsonify(result)
+
+    if img_url is not '' and len(img_url) > 10:
+        face_acc = FaceAccredit(face_utils.read_image_from_url(img_url))
+        face_arr_list,face_in_img = face_acc.face_encoding()
+        if len(face_arr_list) < min_faces:
+            return jsonify(result)
+        dis_results = face_acc.face_compare(face_arr_list)
+        if face_utils.livedetect_result(dis_results,threshold=threshold):
+            return jsonify({"code":"0","result": True, "data": dis_results.tolist()})
+        return jsonify({"code":"0", "result": False, "data": dis_results.tolist()})
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0',port=5001)
