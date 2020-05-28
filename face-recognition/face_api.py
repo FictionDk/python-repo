@@ -16,8 +16,7 @@ def face_compare():
         比对相似度,json
     """
     request_data = request.get_json()
-    url_old = ''
-    url_new = ''
+    url_old, url_new = '',''
     result = {"code": "400", "status":"failed","msg":"参数缺少或错误"}
     if 'url_old' in request_data:
         url_old = request_data['url_old']
@@ -49,13 +48,12 @@ def face_compare():
 
 @app.route('/face/binding',methods=['POST'])
 def face_binding():
+    '''Give an image url and idcardid, build the 128-dimension face encoding npy file for face in the image
+    :param idcard_id 身份证号码
+    :param face_img_url 单人照片
+    :return sucess or failed
     '''
-    1. 传入参数: 身份证号码,身份证照片url/或用户最新证件照
-    2. 处理流程: 判断照片中是否有人脸,如果有: 生成 `NP_身份证号码.npy`文件
-    3. 返回参数: 如果有头像,返回绑定成功;否则返回绑定失败;
-    '''
-    idcard_id = ''
-    face_img_url = ''
+    idcard_id, face_img_url = '',''
     result = {"code":"400","msg":"参数缺少或错误"}
     request_data = request.get_json()
     if 'idcard_id' in request_data:
@@ -78,6 +76,10 @@ def face_binding():
 
 @app.route('/face/identify',methods=['POST'])
 def face_identification():
+    '''根据已绑定的`128-dimension face encoding npy file`查询已存在的人脸信息
+    :param face_img_url 人脸照片
+    :return 相似度大于指定阈值的身份证编码 eg: [{"idcard_id":"450225198208107439","prob": 0.5867}]
+    '''
     face_img_url = ''
     result = {"code":"400","msg":"参数缺少或错误"}
     request_data = request.get_json()
