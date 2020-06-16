@@ -5,7 +5,6 @@ import time
 import sys
 import json
 from Crypto.Cipher import AES
-from Crypto import Random
 from Crypto.Util.Padding import pad
 from Crypto.Util.Padding import unpad
 from base64 import b64encode
@@ -31,7 +30,7 @@ class ZanthAES(object):
 
     def ecb_encrypt(self, text, key):
         '''对内容加密
-        Args: 
+        Args:
             text 需要加密的原文
             key 处理密钥
         Returns: 返回加密后的内容
@@ -44,7 +43,7 @@ class ZanthAES(object):
 
     def ecb_decrypt(self, text, key):
         '''对内容解密
-        Args: 
+        Args:
             text 字符串 需要解密的已加密内容
             key 字符串 解密需要的密钥
         Returns: 字符串 返回加密后的内容,解密失败返回None
@@ -57,7 +56,7 @@ class ZanthAES(object):
             return pt.decode()
         except(ValueError, KeyError, Exception) as e:
             print("Incorrect decryption for text: %s from  key: %s; Error= %s" % (text,key,str(e)))
-            return 
+            return
 
 class CannotReadFile(RuntimeError):
     pass
@@ -68,7 +67,7 @@ class ConnConfig(object):
         '''初始化
         Args:
             _source_conf 源目标连接配置
-            _target_conf 
+            _target_conf
             _key 配置密钥
             _aes 解密对象
         '''
