@@ -22,6 +22,7 @@ def read_from_arr(name):
     pil_image = Image.fromarray(arr)
     pil_image.show()
 
+# 批量上次文件夹的文件并在测试服务器根据文件名绑定
 def face_banding():
     global failed_detail 
     count = 0
@@ -70,8 +71,37 @@ def _build_date_from_line(line):
 def _date_symbol_clean(date):
     return date.replace('[','').replace(']','').replace('\n', '').replace('\r', '')
 
-# 结果检验
-def result_show():
-    print(face_banding())
+# 将多张图片进行拼接
+def pil_paste():
+    width, height, count = 0, 0, 0
+    path = _get_assert_path()
+    filenames = os.listdir(path)
+    images = []
+    for filename in filenames:
+        full_imgname = _get_assert_path(filename)
+        if _is_img_file(full_imgname):
+            im = Image.open(full_imgname)
+            # print("width: %d, height: %d, mode: %s" %(im.width, im.height, im.mode))
+            # print("info: ", im.info)
+            images.append(im)
+            count += 1
+            if im.width > width: 
+                width = im.width
+            if im.height > height:
+                height = im.height
+    print("width=%d, height=%d, count=%d"%(width, height, count))
+    target = Image.new('RGB', (width * count, height))
+    x_axis = 0
+    for i,image in enumerate(images):
+        target.paste(image,box=(x_axis, 0))
+        x_axis += image.height
+    target.save(_get_assert_path("all.jpg"))
 
-face_banding()
+
+def _is_img_file(full_filename):
+    if os.path.isfile(full_filename) and '.png' in full_filename:
+        return True
+    else:
+        return False
+
+pil_paste()

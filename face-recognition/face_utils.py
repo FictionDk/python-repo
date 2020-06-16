@@ -6,14 +6,14 @@ import io
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def get_assert_path(filename=None):
+def get_assert_path(filename=None, pathname='assert'):
     '''获取静态文件目录路径,文件名为空时返回路径
     Args:
         filename 目录下文件名称
     Return:
         str, 返回文件全路路径,文件名为空时文件夹全路径
     '''
-    dir_name = os.path.join(BASE_DIR,'assert')
+    dir_name = os.path.join(BASE_DIR,pathname)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     if filename is None:
@@ -57,14 +57,16 @@ def read_image_from_url(url):
     image_arr = np.array(im)
     return image_arr
 
-def get_npy_list():
+def get_npy_list(batch_count = 100):
     '''批量获取npy列表
     '''
     path = get_assert_path()
     files = os.listdir(path)
     npy_list = []
     name_list = []
+    files = sorted(files, key=lambda x: os.path.getmtime(os.path.join(path,x)))
     for i in range(len(files)):
+        print(files[i])
         if _is_npy_file(files[i],path):
             npy_list.append(np.load(get_assert_path(files[i])))
             name_list.append(files[i].replace('.npy',''))
@@ -89,6 +91,21 @@ def identifaction_result_build(distance_list, face_name_list, threshold):
                 face_result['prob'] = prob
                 identifactions.append(face_result)
     return identifactions
+
+def livedetect_result(distance_list, min_faces=3, threshold=0.7):
+    '''活体认证检验结果
+    Args:
+        distance_list: 人脸相似差距识别结果
+        min_faces: 最小人脸数
+        threshold: 相似度阈值
+    '''
+    if len(distance_list) > 0 and len(distance_list) > min_faces:
+        for distance in distance_list:
+            prob = 1 - distance
+            if prob < threshold:
+                return False
+        return True
+    return False
 
 def _is_npy_file(filename,path):
     full_filename = os.path.join(path,filename)

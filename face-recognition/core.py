@@ -2,20 +2,26 @@
 import face_recognition
 
 class FaceAccredit():
-    # img_arr: 传入的原始图片数组(Must be 8bit gray or RGB image)
     def __init__(self,img_arr=None):
+        '''对象初始化
+        param: img_arr 传入的原始图片数组(Must be 8bit gray or RGB image)
+        '''
         self._face_in_img = False  # 传入图片是否含有人脸
         self._face_arr_list = None  # 传入头像的人脸解析结果
         self._face_locations = None  # 传入头像的人脸位置
         self.set_face_img_arr(img_arr)
 
-    # 设置原始图片数组
     def set_face_img_arr(self,img_arr):
+        '''设置原始图片数组
+        param: img_arr 设置原始数组(Must be 8bit gray or RGB image)
+        '''
         if img_arr is not None:
             self._img_arr = img_arr
 
-    # 图片人脸特征抽取
     def face_encoding(self,img_arr=None):
+        '''图片人脸特征抽取
+        param: img_arr 设置原始数组(Must be 8bit gray or RGB image)
+        '''
         if img_arr is None:
             img_arr = self._img_arr
         face_in_img = False
@@ -41,6 +47,9 @@ class FaceAccredit():
 
     # 人脸相似度比对
     def face_compare(self,face_arr_list):
+        '''人脸相似度比对
+        param: face_arr_list 将传入的图片数组与当前对象的人脸进行比对
+        '''
         dis_results = face_recognition.face_distance(face_arr_list,self._face_arr_list[0])
         return dis_results
 
