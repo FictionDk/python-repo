@@ -2,7 +2,6 @@
 from flask import Flask,jsonify,request
 import face_utils
 from core import FaceAccredit
-import json
 
 app = Flask(__name__)
 
@@ -12,7 +11,7 @@ def face_compare():
     Args:
         url_old: 身份证旧照
         url_new: 实时拍摄新照
-    Return: 
+    Return:
         比对相似度,json
     """
     request_data = request.get_json()
@@ -89,7 +88,7 @@ def face_identification():
     img_arr = face_utils.read_image_from_url(face_img_url)
     face_acc = FaceAccredit(img_arr)
     face_arr_list,face_in_img = face_acc.face_encoding()
-    if face_in_img: 
+    if face_in_img:
         face_npy_list, face_name_list = face_utils.get_npy_list()
         dis_results = face_acc.face_compare(face_npy_list)
         if dis_results.ndim == 1:
