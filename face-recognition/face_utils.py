@@ -8,9 +8,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_assert_path(filename=None, pathname='assert'):
     '''获取静态文件目录路径,文件名为空时返回路径
-    Args: 
+    Args:
         filename 目录下文件名称
-    Return: 
+    Return:
         str, 返回文件全路路径,文件名为空时文件夹全路径
     '''
     dir_name = os.path.join(BASE_DIR,pathname)
@@ -23,7 +23,7 @@ def get_assert_path(filename=None, pathname='assert'):
 
 def save_arr_to_file(arr,name):
     '''将npy数组存入文件
-    Args: 
+    Args:
         arr npy数组
         name npy保存文件名称
     '''
@@ -45,7 +45,7 @@ def read_image_from_file(filepath):
 
 def read_image_from_url(url):
     '''通过图片url获取图片内容
-    Args: 
+    Args:
         url strm图片网络存放路径
     Return:
         npy数组
@@ -74,7 +74,7 @@ def get_npy_list(batch_count = 100):
 
 def identifaction_result_build(distance_list, face_name_list, threshold):
     '''返回身份认证结果
-    Args: 
+    Args:
         distance_list list, 人脸相似差距识别结果
         face_name_list list, 对应的人脸身份证id
         threshold float, 过滤阈值
@@ -94,7 +94,7 @@ def identifaction_result_build(distance_list, face_name_list, threshold):
 
 def livedetect_result(distance_list, min_faces=3, threshold=0.7):
     '''活体认证检验结果
-    Args: 
+    Args:
         distance_list: 人脸相似差距识别结果
         min_faces: 最小人脸数
         threshold: 相似度阈值

@@ -11,8 +11,7 @@ class MethodObject(object):
 
     def call(self, x):
         self.arg = x
-        print(x)
-        return x
+        return self
 
 mo = MethodObject()
 mo.call("x").call("y").call("z")
@@ -154,11 +153,6 @@ history = tf_utils.model_train(model, "VGG16", x_train, y_train, x_test, y_test)
 
 model.summary()
 
-file = open('./weighs.txt', 'w')
-for v in model.trainable_variables:
-    file.write(str(v.name) + '\n')
-    file.write(str(v.shape) + '\n')
-    file.write(str(v.numpy()) + '\n')
-file.close()
+tf_utils.model_save(model)
 
 tf_utils.history_show(history)
