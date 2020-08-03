@@ -27,4 +27,9 @@ ftp.login('www','wwwadmin021')
 `pyinstaller -F -i ./assert/e.ico -n Zanth xftp_utils.py ../file-opt/file_utils.py`
 
 
-### pycryptodome 模块
+### [ZanthAES 模块](aes_core.py)
+
+#### 功能描述
+1. python对称加/解密对象
+2. 包括AES的ECB和GCM两种模式的加解密方式
+3. 读取指定配置目录下的信息,解密获取ip和pwd具体内容
