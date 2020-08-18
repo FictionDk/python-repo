@@ -122,7 +122,8 @@ def main():
     rand_date = rt.random_date(max_day = 50)
     print(rand_date)
     print(rt.random_datetime(rand_date))
-    print(type(rt.random_datetime(rand_date)))
+    rand_time = rt.random_datetime(max_seconds = 3600)
+    print(rand_time)
 
 if __name__ == '__main__':
     main()

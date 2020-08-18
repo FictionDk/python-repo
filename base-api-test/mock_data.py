@@ -15,8 +15,9 @@ class MockData():
         self.person = RandomPerson()
         self.timer = RandomTime()
 
-    def _random_datetime(self):
-        return self.timer.random_datetime().strftime('%Y-%m-%d %H:%M:%S')
+    def _random_datetime(self, min_day = 0, max_day = 7):
+        rand_data = self.timer.random_date(max_day = max_day)
+        return self.timer.random_datetime(rand_date = rand_data).strftime('%Y-%m-%d %H:%M:%S')
 
     def random_data(self,index):
         if index % self.index == 0:
@@ -45,7 +46,6 @@ class MockData():
         else:
             sex_int = 2
         dat = {
-            "deptNo": "4501240455",
             "donatorName": name,
             "idcardId": idcardId,
             "sex": sex_int,
