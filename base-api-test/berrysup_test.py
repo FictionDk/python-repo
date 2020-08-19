@@ -53,7 +53,7 @@ def mock_test(index):
 def main():
     start_time = time.time()
     count = 0
-    cycles = 1
+    cycles = 10
     for i in range(cycles * 8):
         mock_test(i)
         count += 1
