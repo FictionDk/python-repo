@@ -52,7 +52,6 @@ def build_md_table():
     for cell in cells:
         print("%s | %s | %s | %s" %(cell['地区'],cell['规格'],cell['名称'],cell['尺寸']))
 
-
 def get_bag_conf_data():
     file_name_list = get_filename_in_dir("docs")
     cells = []
@@ -64,6 +63,7 @@ def get_bag_conf_data():
         ws = workbook.active
         rows = ws.rows
         for i,row in enumerate(rows):
+            _print_row(i,row)
             cells += _formate_date(row,area_name)
             print("i = %d len = %d" % (i,len(cells)))
             print(cells)
@@ -71,7 +71,7 @@ def get_bag_conf_data():
     return cells
 
 def _formate_date(row,area_name):
-    row_contain_data = lambda row: len(row) == 11 and str(row[0].value).isdigit()
+    row_contain_data = lambda row: len(row) >= 11 and str(row[0].value).isdigit()
     cells = []
     # print(row_contain_data(row),",len=",len(row),",row[0]=",str(row[0]))
     if row_contain_data(row):
@@ -106,6 +106,8 @@ def _formate_date(row,area_name):
                     cell['规格'] = '1.5u'
                 elif j == 10:
                     cell['规格'] = '2.0u'
+                else:
+                    cell['规格'] = ' - '
                 cell['地区'] = area_name
                 cell['名称'] = row[1].value
                 cell['尺寸'] = col.value.replace('*',' * ')
