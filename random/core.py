@@ -12,6 +12,12 @@ from chinesename import ChineseName
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DISTRICT_FILE = os.path.join(BASE_DIR, "source","district.json")
 
+class RandomBuildException(Exception):
+    """创建随机值异常"""
+    def __init__(self, name, reason):
+        self.name = name
+        self.reason = reason
+
 class RandomDistrict(object):
     """生成随机地区"""
     def __init__(self):
@@ -26,8 +32,16 @@ class RandomDistrict(object):
                 districts_json = json.loads(districts_str)
         return districts_json
 
-    def get_district(self):
-        return random.choice(self._districts)
+    def get_district(self, area_code=None):
+        '''创建
+        '''
+        districts = self._districts
+        if area_code != None:
+            districts = dict(filter(lambda x : x[0][0: len(area_code)] == area_code, districts.items()))
+        if districts == None or districts == {}:
+            raise RandomBuildException('GetDistrictException','area code is not exists')
+        k = random.sample(districts.keys(), 1)
+        return k[0], districts.get(k[0])
 
 class RandomTime(object):
     """生成随机时间"""
@@ -88,9 +102,9 @@ class RandomPerson(object):
         name = self._chinesename.getName(sex=sex)
         return name,sex
 
-    def _random_area(self):
-        district_dict = self._district.get_district()
-        return district_dict["name"],district_dict["code"]
+    def _random_area(self, area=None):
+        area_code, area_name = self._district.get_district()
+        return area_name, area_code
 
     # [身份证生成规则]顺序码,奇数为男,偶数为女
     def _sex_code(self,sex):
@@ -106,8 +120,8 @@ class RandomPerson(object):
         result = result % 11
         return str(self._results[result])
 
-    def get_person(self):
-        area_name,area_code = self._random_area()
+    def get_person(self, area=None):
+        area_name,area_code = self._random_area(area_code=area)
         person_name,person_sex = self._random_name()
         person_birthday = self._timer.random_birthday()
         bodycode = area_code + person_birthday.strftime('%Y%m%d') + self._sex_code(person_sex)
