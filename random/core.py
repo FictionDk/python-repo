@@ -32,12 +32,16 @@ class RandomDistrict(object):
                 districts_json = json.loads(districts_str)
         return districts_json
 
-    def get_district(self, area_code=None):
-        '''创建
+    def get_district(self, pre_code=None):
+        '''获取随机的县/市地区编码和名称
+        Args: 
+            pre_code: 地区前缀编码,如北京`11`,四川攀枝花`5104`
+        Returns:
+            area_name, area_code
         '''
         districts = self._districts
-        if area_code != None:
-            districts = dict(filter(lambda x : x[0][0: len(area_code)] == area_code, districts.items()))
+        if pre_code != None:
+            districts = dict(filter(lambda x : x[0][0: len(pre_code)] == pre_code, districts.items()))
         if districts == None or districts == {}:
             raise RandomBuildException('GetDistrictException','area code is not exists')
         k = random.sample(districts.keys(), 1)
@@ -88,8 +92,9 @@ class RandomTime(object):
 
 class RandomPerson(object):
     """生成随机人物(姓名,性别,身份证,所在地,生日)"""
-    def __init__(self):
+    def __init__(self, pre_area_code=None):
         super(RandomPerson, self).__init__()
+        self._pre_area_code = pre_area_code
         self._sexs = ["boy","girl"]
         self._chinesename = ChineseName()
         self._district = RandomDistrict()
@@ -102,8 +107,8 @@ class RandomPerson(object):
         name = self._chinesename.getName(sex=sex)
         return name,sex
 
-    def _random_area(self, area=None):
-        area_code, area_name = self._district.get_district()
+    def _random_area(self):
+        area_code, area_name = self._district.get_district(self._pre_area_code)
         return area_name, area_code
 
     # [身份证生成规则]顺序码,奇数为男,偶数为女
@@ -120,8 +125,8 @@ class RandomPerson(object):
         result = result % 11
         return str(self._results[result])
 
-    def get_person(self, area=None):
-        area_name,area_code = self._random_area(area_code=area)
+    def get_person(self):
+        area_name,area_code = self._random_area()
         person_name,person_sex = self._random_name()
         person_birthday = self._timer.random_birthday()
         bodycode = area_code + person_birthday.strftime('%Y%m%d') + self._sex_code(person_sex)
@@ -129,7 +134,7 @@ class RandomPerson(object):
         return person_name,person_sex,idcard_id,area_name,person_birthday.strftime('%Y-%m-%d')
 
 def main():
-    person = RandomPerson()
+    person = RandomPerson(pre_area_code='11')
     p_name,p_sex,p_id,p_area,p_birth = person.get_person()
     print(p_name,"|",p_sex,"|",p_id,"|",p_area,"|",p_birth)
     rt = RandomTime()
