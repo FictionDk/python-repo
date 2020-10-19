@@ -92,9 +92,24 @@ def get_pic_filename(file_name):
     file_path = _get_pic_uri()
     return os.path.join(file_path,file_name)
 
-def test():
-    print(os.listdir(_get_pic_uri()))
-    print(get_filename_in_dir('yoyo'))
-    print(PARENT_DIR)
+def _get_workspace_path():
+    return os.path.join('C:',os.path.sep, 'workspace', 'work-mkt', 'berry', 'berrynotify', 'src', 'main', 'java')
 
-# test()
+def _find_file(arg, dirname, files):
+    for file in files:
+        file_path = os.path.join(dirname, file)
+        if os.path.isfile(file_path):
+            print("%s"%file)
+
+def test():
+    base_path = _get_workspace_path()
+    all_file_names = []
+    for parent_dir, dir_names, file_names in os.walk(base_path, followlinks=False):
+        all_file_names.extend(file_names)
+
+    file_list_path = get_full_filename('yoyo', 'file_list.txt')
+    for file in all_file_names:
+        with open(file_list_path,'a+',encoding="utf-8") as f:
+            f.write(file + "\n")
+
+test()
