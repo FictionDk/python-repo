@@ -2,15 +2,13 @@
 # Analysis of Public Rental Housing Formula Form
 
 import os
-import time
 import sys
 import openpyxl
 import json
 from pyecharts.charts import Bar
 from pyecharts.charts import Pie
 from pyecharts import options as opts
-from pyecharts.faker import Faker
-from pyecharts.charts import Map,Geo
+from pyecharts.charts import Map
 # from pyecharts.render import make_snapshot
 # from snapshot_selenium import snapshot
 
@@ -67,12 +65,13 @@ class FileUtils():
         Returns:
             返回文件的全路径
         '''
-        dir_full_path = get_full_filename(directory)
+        dir_full_path = self.get_full_filename(directory)
         return os.listdir(dir_full_path)
 
 class AnalysisUtil():
     '''数据分析工具
     '''
+
     def __init__(self):
         self.provinces = {}
         self.province_json = self._provinces()
@@ -107,11 +106,12 @@ class AnalysisUtil():
 class ChartUtil():
     '''可视化工具
     '''
+
     def bar(self, datasets):
         print(datasets)
         datasets = sorted(datasets, key=lambda d: d[1], reverse=True)
-        count = list(map(lambda d : d[1] , datasets))
-        provinces = list(map(lambda d : d[0] , datasets))
+        count = list(map(lambda d: d[1], datasets))
+        provinces = list(map(lambda d: d[0], datasets))
         print(provinces)
         Bar().add_xaxis(provinces).add_yaxis('', count).set_global_opts(
             title_opts=opts.TitleOpts(title=get_title()),
@@ -130,20 +130,18 @@ class ChartUtil():
         m.set_global_opts(
             title_opts=opts.TitleOpts(title=get_title()),
             visualmap_opts=opts.VisualMapOpts(
-                max_=3000, 
+                max_=3000,
                 min_=100,
                 range_text=['High', 'Low'],
                 is_calculable=True,
                 range_color=["lightskyblue", "yellow", "orangered"]),
-            legend_opts=opts.LegendOpts(is_show=False),
-            ).render('docs/map.html')
+            legend_opts=opts.LegendOpts(is_show=False),).render('docs/map.html')
 
 def _print_row(i,row):
     for j,col in enumerate(row):
-        print("row[%d] col[%d] = %s" %(i,j,str(col.value)))
+        print("row[%d] col[%d] = %s" % (i, j,str(col.value)))
 
 def _formate_data(i, row, au):
-    cell = {}
     row_contain_data = lambda row: len(row) >= 7 and str(row[0].value).isdigit() or row[0].value is None
     if row_contain_data(row):
         au.area_analysis(row[4].value)
@@ -167,7 +165,7 @@ def main():
 
 def test():
     datasets = [('广东', 10003), ('河北', 177), ('江苏', 136), ('山西', 152), ('安徽', 411), ('湖南', 2780)]
-    get_k = lambda d : d[0]
+    get_k = lambda d: d[0]
     test = list(map(get_k, datasets))
     print(test)
     print("gogog")
