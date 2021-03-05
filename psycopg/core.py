@@ -109,5 +109,4 @@ def row_show(row):
     for col in enumerate(row):
         print("%s, %s" % (type(col[1]), col[1]))
 
-
 clean_data()
