@@ -125,6 +125,9 @@ class RandomPerson(object):
         result = result % 11
         return str(self._results[result])
 
+    def set_pre_area_code(self, pre_area_code):
+        self._pre_area_code = pre_area_code
+
     def get_person(self):
         area_name,area_code = self._random_area()
         person_name,person_sex = self._random_name()
