@@ -117,11 +117,11 @@ class ChartUtil():
             title_opts=opts.TitleOpts(title=get_title()),
             xaxis_opts=opts.AxisOpts(axislabel_opts=opts.LabelOpts(rotate=-15)),
             datazoom_opts=[opts.DataZoomOpts(), opts.DataZoomOpts(type_="inside")],
-        ).render("docs/bar.html")
+        ).render("docs/new-bar.html")
 
     def pie(self, datesets):
         pie = Pie(init_opts=opts.InitOpts(width='500px',height='500px',page_title=get_title()))
-        pie.add("", datesets).render("docs/pies.html")
+        pie.add("", datesets).render("docs/new-pies.html")
 
     def map(self, datasets):
         print(datasets)
@@ -135,7 +135,7 @@ class ChartUtil():
                 range_text=['High', 'Low'],
                 is_calculable=True,
                 range_color=["lightskyblue", "yellow", "orangered"]),
-            legend_opts=opts.LegendOpts(is_show=False),).render('docs/map.html')
+            legend_opts=opts.LegendOpts(is_show=False),).render('docs/new-map.html')
 
 def _print_row(i,row):
     for j,col in enumerate(row):
@@ -151,7 +151,7 @@ def main():
     au = AnalysisUtil()
     cu = ChartUtil()
 
-    path = fu.get_full_filename('docs', '8181977.xlsx')
+    path = fu.get_full_filename('docs', '8195852.xlsx')
 
     workbook = openpyxl.load_workbook(path,read_only=True)
     workspace = workbook.active
