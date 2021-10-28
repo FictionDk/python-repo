@@ -43,3 +43,10 @@
 1. xxxSprider.parse方法中读取response.text,写入xxx.html文件
 2. 使用`scrapy shell xxx.html`命令读取文件进入内存
 3. 命令行调试解析,避免调试期间调用页面过频被封ip
+4. 针对反爬机制网站的解析测试,可将网页另存为`xxx/xxx.html`,再使用`scrapy shell xxx/xxx.html`读取测试
+
+## selenium
+
+1. [无头谷歌驱动 cnpm镜像地址](http://npm.taobao.org/mirrors/chromedriver/)
+2. 使用无头谷歌浏览器,需要通过`from scrapy.http import HtmlResponse`将响应数据包装成符合HTTP协议形式
+3. 处理过程可以放在`middlewares`中

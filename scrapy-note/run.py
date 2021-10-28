@@ -3,3 +3,4 @@
 from scrapy import cmdline
 # cmdline.execute("scrapy crawl quotes".split())
 cmdline.execute("scrapy crawl douban".split())
+# cmdline.execute("scrapy crawl ioliu".split())

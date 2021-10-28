@@ -25,7 +25,7 @@ class DoubanSpider(scrapy.Spider):
             time.sleep(4)
         self.page += 25
         print("URL: %s%s" % (self.url,self.page))
-        if self.page <= 100:
+        if self.page <= 50:
             yield scrapy.Request(url=self.url + str(self.page), callback=self.parse)
 
     def parse_detail(self, response):

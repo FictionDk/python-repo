@@ -1,4 +1,6 @@
 from scrapy.exceptions import DropItem
+from scrapy.pipelines.files import FilesPipeline
+from scrapy import Request
 import os
 import time
 import json
@@ -13,6 +15,8 @@ class BuildItemIDPipeline(object):
             item['article_id'] = splits[len(splits) - 2]
             splits = item['author_url'].split('/')
             item['author_id'] = splits[len(splits) - 2]
+            return item
+        elif "ioliu" == spider.name:
             return item
         else:
             return DropItem("Missing ...")
@@ -42,3 +46,19 @@ class JsonWriterPipeline(object):
         if msg is not None:
             with open(self.full_name,'a+',encoding="utf-8") as f:
                 f.write(msg + "\n")
+
+class ImagespiderPipeline(FilesPipeline):
+
+    def get_media_requests(self, item, info):
+        print("BASE_DIR= %s" % self.store)
+        print("INFO = ",info)
+        print("item:( %s : %s )" % (item['img_url'],item['img_name']))
+        yield Request(item['img_url'])
+
+    # 重写命名函数，否则图片名为哈希值
+    # def file_path(self, request, response=None, info=None):
+    #    media_guid = request.meta['name']
+    #    media_ext = os.path.splitext(request.url)[1]
+    #    self.logger.info("........... ",media_guid)
+    #    print("**********name:( %s )" % media_guid)
+    #    return 'full/%s%s' % (media_guid, media_ext)

@@ -37,7 +37,7 @@ USER_AGENT_LIST = [
 # CONCURRENT_REQUESTS_PER_IP = 16
 
 # Disable cookies (enabled by default)
-COOKIES_ENABLED = False
+COOKIES_ENABLED = True
 
 # Disable Telnet Console (enabled by default)
 # TELNETCONSOLE_ENABLED = False
@@ -58,6 +58,7 @@ COOKIES_ENABLED = False
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     'blade.middlewares.RandomUserAgentMiddleware': 900,
+    'blade.middlewares.IoliuResponseMiddleware': 500,
     'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None
 }
 
@@ -67,10 +68,15 @@ DOWNLOADER_MIDDLEWARES = {
 #    'scrapy.extensions.telnet.TelnetConsole': None,
 # }
 
+# 设置图片存储目录
+FILES_STORE = 'D:\\Resource\\images'
+
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'blade.pipelines.BuildItemIDPipeline': 100,
+    # 'scrapy.pipelines.files.FilesPipeline': 1,
+    'blade.pipelines.ImagespiderPipeline': 200,
     'blade.pipelines.JsonWriterPipeline': 300
 }
 

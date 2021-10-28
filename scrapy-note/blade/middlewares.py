@@ -7,7 +7,11 @@
 
 from scrapy import signals
 from scrapy.downloadermiddlewares.useragent import UserAgentMiddleware
+from scrapy.http import HtmlResponse
+from time import sleep
 import random
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class BladeSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -74,3 +78,20 @@ class RandomUserAgentMiddleware(UserAgentMiddleware):
         rand_use = random.choice(self.user_agent)
         if rand_use:
             request.headers.setdefault('User-Agent', rand_use)
+
+class IoliuResponseMiddleware(object):
+
+    def _get_snapshot_path(self,file_path):
+        return os.path.join(BASE_DIR,file_path)
+
+    def process_response(self, request, response, spider):
+        if "ioliu" == spider.name:
+            spider.browser.get(url=request.url)
+            sleep(random.randint(3,5))
+            screenshot_path = self._get_snapshot_path('a.png')
+            spider.browser.get_screenshot_as_file(screenshot_path)
+            sleep(3)
+            row_response = spider.browser.page_source
+            return HtmlResponse(url=spider.browser.current_url,body=row_response,encoding="utf8",request=request)
+        else:
+            return response
