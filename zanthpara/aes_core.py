@@ -94,7 +94,7 @@ class ZanthAES(object):
         # If the tag does not match an InvalidTag exception will be raised.
         return decryptor.update(ciphertext) + decryptor.finalize()
 
-    def set_key(key):
+    def set_key(self, key):
         self.__key = key
 
     def encrypt(self, text):
@@ -144,5 +144,8 @@ def test():
     print(aes.encrypt(ip))
     print(aes.encrypt(pw))
 
+    data = '{"UserName": "cy_rfid", "UserPassword": "cy_02024"}'
+    aes.set_key('shinow90')
+    print(aes.encrypt(data))
 
 test()
