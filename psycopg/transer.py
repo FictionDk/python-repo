@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import time
 import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -42,30 +41,35 @@ def get_full_filename(directory,filename=None):
     return full_name
 
 def read_raw_datas():
-    file_name = 'D:\\Resource\\RFID\\czxz210128.txt'
+    file_name = 'D:\\Resource\\RFID\\49-常州中心血站12.txt'
     result = []
     with open(file_name,'r',encoding="utf-8") as f:
         str_lines = f.readlines()
         for str_line in str_lines:
-            str_arr = str_line.replace('\n','').split(',')
-            if(str_arr[12] == 'true'):
+            str_arr = str_line.upper().replace('\n','').replace('"','').split(',')
+            if(len(str_arr) > 12 and str_arr[12] == 'TRUE'):
                 row = {}
-                row['SID'] = str_arr[1]
+                row['SID'] = str_arr[1][0:13].replace(' ','')
                 row['TID'] = str_arr[0]
-                row['FL'] = str_arr[8]
+                flag = str_arr[8]
+                if flag is None:
+                    flag = ''
+                if len(flag) == 1:
+                    flag = '0' + flag
+                row['FL'] = flag
                 row['RE'] = str_arr[9]
                 result.append(row)
     return result
 
 def build_sql(m):
-    sql = 'INSERT INTO tidmapping("serial_id", "tid", "flag", "remark", "vendor", "created_at") VALUES (SID, TID, FL, RE,'
+    sql = 'INSERT INTO blood_label("don_code", "tid", "flag", "remark", "vendor", "created_at") VALUES (\'SID\', \'TID\', \'FL\', \'RE\','
     for k in m.keys():
         sql = sql.replace(k, m.get(k).replace('"','\''))
-    sql = sql + '\'SOAP\',\'2021-01-28 21:00:00\');'
+    sql = sql + '\'SOAP\',\'2021-04-30 18:00:00\');'
     return sql
 
 def save_sql(sqls):
-    file_name = get_full_filename("docs","mapping.sql")
+    file_name = get_full_filename("docs","49_rfid12.sql")
     print(file_name)
     with open(file_name,'a+',encoding="utf-8") as f:
         for sql in sqls:
