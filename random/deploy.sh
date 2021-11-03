@@ -7,6 +7,7 @@ PORT=10006
 
 PWD_DIR="$(cd `dirname $0`; pwd)"
 ASSERT_DIR="${PWD_DIR}/source"
+CONFIG_DIR="${PWD_DIR}/config"
 
 function remove()
 {
@@ -22,7 +23,8 @@ function build()
 function run()
 {
     sudo docker run -d -p ${PORT}:${PORT} --restart=always --name ${CONTANER_NAME} \
-        -v $ASSERT_DIR:/root/source ${REPO_NAME}/${CONTANER_NAME}:${VERSION}
+        -v $CONFIG_DIR:/root/config -v $ASSERT_DIR:/root/source \
+        ${REPO_NAME}/${CONTANER_NAME}:${VERSION}
 }
 
 remove

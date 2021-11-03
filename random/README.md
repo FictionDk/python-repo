@@ -8,8 +8,9 @@
 --- | ---
 souce.spider.py | 原始资源爬取
 souce.district.json | 远程爬取的全国地区编码和地区名称
-core.py | 创建随机数据
+core.py | 创建人物随机数据
 api.py | 基于flask提供api接口访问
+pgsql.py | 查询并创建标签随机数据
 
 
 ## requirements
