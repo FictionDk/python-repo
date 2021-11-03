@@ -1,0 +1,1 @@
+{"user": "postgres", "passwd": "O1qa9OjN", "ip":"192.168.110.13", "port": 5432, "db": "rfid_demo"}
