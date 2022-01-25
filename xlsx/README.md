@@ -42,4 +42,5 @@ except FileNotFoundError as e:
     print("FileNotFoundError")
 ```
 
-
+### 服务打包
+`pyinstaller -F -i ./docs/e64.ico -n AELD AELD.py`
