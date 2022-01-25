@@ -3,16 +3,24 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import os
+import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGS_DIR = "logs"
+PICS_DIR = "Pictures"
 LOG_FILE = "bing_img_crawler.log"
+
+# 打包后的环境
+BUNDLE_DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = BUNDLE_DIR
 
 def get_host():
     return 'bing.ioliu.cn'
 
 def get_dir_path():
-    return 'D://Doc//OneDrive//Pictures//'
+    return BASE_DIR
+    # return 'D://Doc//OneDrive//Pictures//'
     # return 'E://OneDrive//Pictures//'
 
 def get_header():
@@ -44,13 +52,14 @@ def get_img_list():
         img['time'] = str(desc.p.em.string)
         img_list.append(img)
         print(img.get('name') + '--' + img.get('url'))
+        time.sleep(1)
     return img_list
 
 def save_img(img):
     r = requests.get(img.get('url'), headers=get_header())
     if r.ok:
         try:
-            with open(get_dir_path() + img.get('name'), 'wb') as fb:
+            with open(get_full_filename(PICS_DIR,img.get('name')), 'wb') as fb:
                 fb.write(r.content)
                 return True
         except Exception as err:
@@ -61,7 +70,7 @@ def save_img(img):
 
 # 获取文件全路径名称
 def get_full_filename(dirname,filename):
-    dir_name = os.path.join(os.getcwd(),dirname)
+    dir_name = os.path.join(BASE_DIR,dirname)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     full_name = os.path.join(dir_name,filename)
@@ -93,8 +102,9 @@ def test(url):
 
 if __name__ == "__main__":
     main()
+    time.sleep(1)
     # img = {}
     # img['url'] = 'https://bing.ioliu.cn/photo/MetamorphicRocks_ZH-CN9753251368?force=download'
-    # img['name'] = '柬埔寨吴哥窟的日出 (© Sergio Diaz/Getty Images).jpg'
-    # img['time'] = '2020-03-16 17:16:44'
-    # test(img)
+    # img['name'] = '缅因州达马里斯科塔地区的佩马基德灯塔 (© Tom Whitney/Adobe Stock).jpg'
+    #img['time'] = '2020-03-15 17:16:44'
+    #test(img)
