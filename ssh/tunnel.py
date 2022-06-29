@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import re
 from sshtunnel import SSHTunnelForwarder
 import time
 
@@ -29,5 +28,4 @@ def _get_config():
 
 if __name__ == "__main__":
     conf = _get_config()
-    print(conf)
     ssh_1(conf['ip'],int(conf['port']),conf['usr'],conf['pwd'],int(conf['keeplive']))

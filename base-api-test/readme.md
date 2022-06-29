@@ -1,0 +1,1 @@
+`pyinstaller -F -i E:\NutDoc\icons\icon.ico -n preg pda_register.py`
