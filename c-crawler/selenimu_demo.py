@@ -9,6 +9,8 @@ LOGS_DIR = "logs"
 
 '''
 D:/Resource/chromedriver_win32/chromedriver.exe
+下载地址
+https://sites.google.com/chromium.org/driver/
 '''
 def _get_driver_path(own_machine=True):
     if own_machine:
