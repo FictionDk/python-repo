@@ -29,4 +29,3 @@ chore | 构建过程或辅助工具的变动
 ### 文件远程传送
 `scp -r ../base-api-test/* passcloud@192.168.110.86:~/python3test`
 
-
