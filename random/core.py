@@ -95,7 +95,7 @@ class RandomPerson(object):
     def __init__(self, pre_area_code=None):
         super(RandomPerson, self).__init__()
         self._pre_area_code = pre_area_code
-        self._sexs = ["boy","girl"]
+        self._gender = ["boy","girl"]
         self._chinesename = ChineseName()
         self._district = RandomDistrict()
         self._timer = RandomTime()
@@ -103,7 +103,7 @@ class RandomPerson(object):
         self._results = [1,0,'X',9,8,7,6,5,4,3,2]
 
     def _random_name(self):
-        sex = random.choice(self._sexs)
+        sex = random.choice(self._gender)
         name = self._chinesename.getName(sex=sex)
         return name,sex
 
@@ -112,8 +112,8 @@ class RandomPerson(object):
         return area_name, area_code
 
     # [身份证生成规则]顺序码,奇数为男,偶数为女
-    def _sex_code(self,sex):
-        code = random.randrange(0,998,2)
+    def _gender_code(self,sex):
+        code = random.randrange(100,998,2)
         if "boy" is sex:
             code += 1
         return str(code)
@@ -132,7 +132,7 @@ class RandomPerson(object):
         area_name,area_code = self._random_area()
         person_name,person_sex = self._random_name()
         person_birthday = self._timer.random_birthday()
-        bodycode = area_code + person_birthday.strftime('%Y%m%d') + self._sex_code(person_sex)
+        bodycode = area_code + person_birthday.strftime('%Y%m%d') + self._gender_code(person_sex)
         idcard_id = bodycode + self._check_code(bodycode)
         return person_name,person_sex,idcard_id,area_name,person_birthday.strftime('%Y-%m-%d')
 
@@ -147,5 +147,17 @@ def main():
     rand_time = rt.random_datetime(max_seconds = 3600)
     print(rand_time)
 
+def tests():
+    err_count = 0
+    person = RandomPerson()
+    for i in range(10000):
+        p_name,p_sex,p_id,p_area,p_birth = person.get_person()
+        if len(p_id) != 18:
+            err_count += 1
+            print(p_id)
+    print(f"count={err_count}")
+    if err_count > 0:
+        raise Exception(f"BuildIdcardErr,Count={err_count}")
+
 if __name__ == '__main__':
-    main()
+    tests()
