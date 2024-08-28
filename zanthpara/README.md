@@ -31,5 +31,5 @@ ftp.login('www','wwwadmin021')
 
 #### 功能描述
 1. python对称加/解密对象
-2. 包括AES的ECB和GCM两种模式的加解密方式
+2. 包括AES的ECB和GCM两种模式的加解密方式 `pip install pycryptodome`
 3. 读取指定配置目录下的信息,解密获取ip和pwd具体内容

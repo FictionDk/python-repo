@@ -48,7 +48,7 @@ def get_img_list():
         desc = img_row.find(class_='description')
         ori_url = img_row.find(class_='options').find(class_='ctrl download').attrs['href']
         img['name'] = str(desc.h3.string).split(' ')[0] + '.jpg'
-        img['url'] = 'https://' + get_host() + ori_url
+        img['url'] = ori_url if 'https' in ori_url else 'https://' + get_host() + ori_url
         img['time'] = str(desc.p.em.string)
         img_list.append(img)
         print(img.get('name') + '--' + img.get('url'))

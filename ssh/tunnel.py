@@ -3,14 +3,15 @@
 from sshtunnel import SSHTunnelForwarder
 import time
 
+# 214.254.2.78:30020
 def ssh_1(ip, port, usr, pwd, keeplive):
+    print(f"{ip}:{port} starting")
     server = SSHTunnelForwarder(ssh_address_or_host=(ip,port),
-    ssh_username=usr,
-    ssh_password=pwd,
-    local_bind_address=('127.0.0.1',8100),
-    remote_bind_address=('127.0.0.1',80))
+        ssh_pkey="/Users/fictio/.ssh/id_rsa",
+        local_bind_address=('127.0.0.1',30020),
+        remote_bind_address=('214.254.2.78',30020))
     server.start()
-    print("start started")
+    print(f"{ip} started success")
     time.sleep(keeplive)
     print("start stopped")
     server.stop()
