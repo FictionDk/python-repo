@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+      "station_operator": {
+        "command": "python",
+        "args": [
+          "E:\\py_codes\\python-repo\\mcp-server\\operator.py"
+        ]
+      }
+    }
+}
