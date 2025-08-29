@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "remote-server": {
+      "url": "http://localhost:8080/mcp/sse",
+      "transport": "sse"
+    }
+  }
+}

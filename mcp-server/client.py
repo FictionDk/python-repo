@@ -7,9 +7,24 @@ from contextlib import AsyncExitStack
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 from httpx import Timeout
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+# LLM configuration constants
+LLM_TEMPERATURE = 0.7
+LLM_TOP_P = 1
+LLM_STREAM = False
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +37,9 @@ class Configuration:
 
     def __init__(self) -> None:
         """Initialize configuration with environment variables."""
+        self.api_key = os.getenv("LLM_API_KEY")
+        if not self.api_key:
+            raise ValueError("LLM_API_KEY not found in environment variables")
         print("config init")
 
     @staticmethod
@@ -68,32 +86,55 @@ class Server:
         self.exit_stack: AsyncExitStack = AsyncExitStack()
 
     async def initialize(self) -> None:
-        """Initialize the server connection."""
-        command = (
-            shutil.which("npx")
-            if self.config["command"] == "npx"
-            else self.config["command"]
-        )
-        if command is None:
-            raise ValueError("The command must be a valid string and cannot be None.")
-
-        server_params = StdioServerParameters(
-            command=command,
-            args=self.config["args"],
-            env={**os.environ, **self.config["env"]}
-            if self.config.get("env")
-            else None,
-        )
+        """Initialize the server connection using the appropriate transport."""
         try:
-            stdio_transport = await self.exit_stack.enter_async_context(
-                stdio_client(server_params)
-            )
-            read, write = stdio_transport
-            session = await self.exit_stack.enter_async_context(
-                ClientSession(read, write)
-            )
-            await session.initialize()
-            self.session = session
+            transport = self.config.get("transport", "stdio")
+            
+            if transport == "sse":
+                # Handle SSE transport for remote servers
+                url = self.config.get("url")
+                if not url:
+                    raise ValueError(f"URL required for SSE transport in server {self.name}")
+                
+                # Use sse_client context manager for SSE connections
+                read, write = await self.exit_stack.enter_async_context(
+                    sse_client(url)
+                )
+                session = await self.exit_stack.enter_async_context(
+                    ClientSession(read, write)
+                )
+                await session.initialize()
+                self.session = session
+                logging.info(f"Connected to server {self.name} via SSE at {url}")
+                
+            else:
+                # Handle stdio transport for local processes
+                command = (
+                    shutil.which("npx")
+                    if self.config["command"] == "npx"
+                    else self.config["command"]
+                )
+                if command is None:
+                    raise ValueError("The command must be a valid string and cannot be None.")
+
+                server_params = StdioServerParameters(
+                    command=command,
+                    args=self.config["args"],
+                    env={**os.environ, **self.config["env"]}
+                    if self.config.get("env")
+                    else None,
+                )
+                stdio_transport = await self.exit_stack.enter_async_context(
+                    stdio_client(server_params)
+                )
+                read, write = stdio_transport
+                session = await self.exit_stack.enter_async_context(
+                    ClientSession(read, write)
+                )
+                await session.initialize()
+                self.session = session
+                logging.info(f"Connected to server {self.name} via stdio")
+                
         except Exception as e:
             logging.error(f"Error initializing server {self.name}: {e}")
             await self.cleanup()
@@ -228,18 +269,20 @@ class LLMClient:
         Raises:
             httpx.RequestError: If the request to the LLM fails.
         """
-        url = "http://192.168.120.246:32678/v1/chat/completions"
+        url = os.getenv("LLM_API_URL")
+        if not url:
+            raise ValueError("LLM_API_URL not found in environment variables")
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer sk-hIPCXpg5TndiNcQSF6h6Dk3PVI7hvLBmouVKdXCkmZbOtNCC",
+            "Authorization": f"Bearer {os.getenv('LLM_API_KEY')}",
         }
         payload = {
             "messages": messages,
-            "model": "deepseekai/DeepSeek-R1-bucvhocq6e9a9s73fqvf70",
-            "temperature": 0.7,
-            "top_p": 1,
-            "stream": False,
+            "model": os.getenv("LLM_MODEL"),
+            "temperature": LLM_TEMPERATURE,
+            "top_p": LLM_TOP_P,
+            "stream": LLM_STREAM,
             "stop": None,
         }
         # 打印 messages
@@ -410,7 +453,7 @@ class ChatSession:
 async def main() -> None:
     """Initialize and run the chat session."""
     config = Configuration()
-    server_config = config.load_config("servers_config.json")
+    server_config = config.load_config("passkg_config.json")
     servers = [
         Server(name, srv_config)
         for name, srv_config in server_config["mcpServers"].items()
