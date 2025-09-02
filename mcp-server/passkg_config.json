@@ -1,8 +1,11 @@
 {
   "mcpServers": {
-    "remote-server": {
+    "passkg-server": {
+      "name": "passkg",
+      "description":"血液行业知识库",
       "url": "http://localhost:8080/mcp/sse",
-      "transport": "sse"
+      "transport": "sse",
+      "oauth": false
     }
   }
 }
