@@ -93,18 +93,18 @@ class Server:
             if transport == "sse":
                 # Handle SSE transport for remote servers
                 url = self.config.get("url")
-                if not url:
-                    raise ValueError(f"URL required for SSE transport in server {self.name}")
+                # if not url:
+                #     raise ValueError(f"URL required for SSE transport in server {self.name}")
                 
-                # Use sse_client context manager for SSE connections
-                read, write = await self.exit_stack.enter_async_context(
-                    sse_client(url)
-                )
-                session = await self.exit_stack.enter_async_context(
-                    ClientSession(read, write)
-                )
-                await session.initialize()
-                self.session = session
+                # # Use sse_client context manager for SSE connections
+                # read, write = await self.exit_stack.enter_async_context(
+                #     sse_client(url)
+                # )
+                # session = await self.exit_stack.enter_async_context(
+                #     ClientSession(read, write)
+                # )
+                # await session.initialize()
+                # self.session = session
                 logging.info(f"Connected to server {self.name} via SSE at {url}")
                 
             else:
@@ -149,16 +149,23 @@ class Server:
         Raises:
             RuntimeError: If the server is not initialized.
         """
-        if not self.session:
+        transport = self.config.get("transport", "stdio")
+        if transport == 'stdio' and not self.session:
             raise RuntimeError(f"Server {self.name} not initialized")
-
-        tools_response = await self.session.list_tools()
+        if transport == 'sse':
+            async with sse_client(self.config.get("url")) as streams:
+                async with ClientSession(*streams) as session:
+                    self.session = session
+                    await self.session.initialize()
+                    tools_response = await self.session.list_tools()
+        else:
+            tools_response = await self.session.list_tools()
         tools = []
-
-        for item in tools_response:
-            if isinstance(item, tuple) and item[0] == "tools":
-                for tool in item[1]:
-                    tools.append(Tool(tool.name, tool.description, tool.inputSchema))
+        if tools_response:
+            for item in tools_response:
+                if isinstance(item, tuple) and item[0] == "tools":
+                    for tool in item[1]:
+                        tools.append(Tool(tool.name, tool.description, tool.inputSchema))
 
         return tools
 
@@ -188,11 +195,18 @@ class Server:
             raise RuntimeError(f"Server {self.name} not initialized")
 
         attempt = 0
+        transport = self.config.get("transport", "stdio")
         while attempt < retries:
             try:
                 logging.info(f"Executing {tool_name}...")
-                result = await self.session.call_tool(tool_name, arguments)
-
+                if transport == 'sse':
+                    async with sse_client(self.config.get("url")) as streams:
+                        async with ClientSession(*streams) as session:
+                            self.session = session
+                            await self.session.initialize()
+                            result = await self.session.call_tool(tool_name, arguments)
+                else:
+                    result = await self.session.call_tool(tool_name, arguments)
                 return result
 
             except Exception as e:

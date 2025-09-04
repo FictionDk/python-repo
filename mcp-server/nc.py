@@ -3,6 +3,7 @@ import threading
 import queue
 import sys
 import logging
+import time
 from typing import Optional
 from mcp.client.sse import sse_client
 from mcp.client.session import ClientSession
@@ -115,13 +116,7 @@ class SseSessionManager:
                     
                     # 发送连接事件到主线程
                     self.result_queue.put(('connected', result.serverInfo.name))
-                    
-                    # 发现服务器上可用的工具
-                    self.logger.info("Discovering available tools")
-                    tools = await session.list_tools()
-                    tool_names = [tool.name for tool in tools.tools]
-                    self.logger.info(f"Discovered {len(tool_names)} tools: {tool_names}")
-                    
+
                     # 发送工具列表事件到主线程
                     self.result_queue.put(('tools', tool_names))
                     
@@ -129,7 +124,11 @@ class SseSessionManager:
                     # 此循环每秒运行一次以检查停止条件
                     self.logger.info("Session established and running")
                     while not self.stop_event.is_set():
-                        await asyncio.sleep(1)
+                        tools = await session.list_tools()
+                        tool_names = [tool.name for tool in tools.tools]
+                        self.logger.info(f"Discovered {len(tool_names)} tools: {tool_names}")
+                        self.result_queue.put(('tools', tool_names))
+                        await asyncio.sleep(60)
 
         except Exception as e:
             self.logger.error(f"Error in session management: {str(e)}", exc_info=True)
@@ -181,29 +180,40 @@ class SseSessionManager:
             Any: 工具执行的结果
             
         异常:
-            RuntimeError: 如果会话未初始化
+            RuntimeError: 如果会话未初始化或重试后仍无法连接
         """
-        if not self.session or not self.loop:
-            error_msg = "Cannot call tool: session not initialized"
-            self.logger.error(error_msg)
-            raise RuntimeError(error_msg)
-            
-        self.logger.info(f"Calling tool: {tool_name} with arguments: {arguments}")
+        max_retries = 3
+        retry_delay = 1  # seconds
         
-        # 在工作线程的事件循环中安排协程运行
-        future = asyncio.run_coroutine_threadsafe(
-            self.session.call_tool(tool_name, arguments), 
-            self.loop
-        )
-        
-        try:
-            # 等待并返回结果
-            result = future.result()
-            self.logger.info(f"Tool call successful: {tool_name}")
-            return result
-        except Exception as e:
-            self.logger.error(f"Tool call failed: {tool_name}, error: {str(e)}", exc_info=True)
-            raise
+        for attempt in range(max_retries + 1):
+            try:
+                if attempt < max_retries:
+                    self.logger.info(f"Reconnection failed, waiting {retry_delay} seconds before retry...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    error_msg = "Cannot call tool: failed to establish connection after maximum retries"
+                    self.logger.error(error_msg)
+                    raise RuntimeError(error_msg)
+                
+                self.logger.info(f"Calling tool: {tool_name} with arguments: {arguments}")
+                
+                # 在工作线程的事件循环中安排协程运行
+                future = asyncio.run_coroutine_threadsafe(
+                    self.session.call_tool(tool_name, arguments), 
+                    self.loop
+                )
+                result = future.result()
+                self.logger.info(f"Tool call successful: {tool_name}")
+                return result
+            except Exception as e:
+                self.logger.error(f"Tool call failed: {tool_name}, error: {str(e)}", exc_info=True)
+                if attempt < max_retries:
+                    self.logger.info(f"{attempt}/{max_retries}, waiting {retry_delay} seconds before retry...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+                raise e
 
     def stop(self) -> None:
         """
@@ -314,7 +324,7 @@ class SessionController:
                     if sys.stdin.isatty():
                         self.logger.debug("Reading command from interactive input")
                         user_input = await asyncio.get_event_loop().run_in_executor(
-                            None, input, "Enter command (start/stop/quit): "
+                            None, input, "Enter command (start/stop/quit/call_tool): "
                         )
                     else:
                         # 非交互式环境下的处理
@@ -381,6 +391,7 @@ class SessionController:
                                     f"Progress: {progress}/{total} "
                                     f"({percentage:.1f}%)"
                                 )
+                            print(f"Tool result: {result}")
                             self.logger.info(f"Tool result: {result} with type {type(result)}")
                             
                         except Exception as e:
