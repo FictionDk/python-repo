@@ -24,7 +24,7 @@ logging.basicConfig(
 # LLM configuration constants
 LLM_TEMPERATURE = 0.7
 LLM_TOP_P = 1
-LLM_STREAM = False
+LLM_STREAM = True
 
 # Page configuration
 st.set_page_config(
@@ -306,11 +306,39 @@ class LLMClient:
         }
 
         try:
-            with httpx.Client(timeout=Timeout(40)) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                return data["choices"][0]["message"]["content"]
+            # Create client with follow_redirects=True and without stream parameter
+            with httpx.Client(timeout=Timeout(40), follow_redirects=True) as client:
+                # For streaming requests, we need to use stream=True in the request
+                if LLM_STREAM:
+                    response = client.post(url, headers=headers, json=payload)
+                    response.raise_for_status()
+                    
+                    # For streaming, we need to collect the complete response
+                    full_response = ""
+                    for line in response.iter_lines():
+                        if line.strip() and line.startswith("data:"):
+                            try:
+                                # Remove "data: " prefix
+                                json_str = line[5:].strip()
+                                if json_str == "[DONE]":
+                                    break
+                                    
+                                data = json.loads(json_str)
+                                if "choices" in data and len(data["choices"]) > 0:
+                                    delta = data["choices"][0].get("delta", {})
+                                    if "content" in delta:
+                                        content = delta["content"]
+                                        full_response += content
+                            except json.JSONDecodeError:
+                                continue
+                                
+                    return full_response
+                else:
+                    # For non-streaming requests
+                    response = client.post(url, headers=headers, json=payload)
+                    response.raise_for_status()
+                    data = response.json()
+                    return data["choices"][0]["message"]["content"]
 
         except httpx.RequestError as e:
             error_message = f"Error getting LLM response: {str(e)}"
@@ -339,33 +367,41 @@ class ChatSession:
         if not self.servers:
             return
             
-        # Use asyncio.shield to protect cleanup tasks from cancellation
-        cleanup_tasks = []
-        for server in self.servers:
-            # Wrap each cleanup task with shield to prevent cancellation
-            cleanup_task = asyncio.shield(server.cleanup())
-            cleanup_tasks.append(cleanup_task)
+        # Create cleanup tasks without shielding to allow proper cancellation handling
+        cleanup_tasks = [server.cleanup() for server in self.servers]
 
         if cleanup_tasks:
             try:
-                # Wait for all cleanup tasks to complete
-                results = await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-                # Log any exceptions that occurred during cleanup
-                for result in results:
-                    if isinstance(result, Exception):
-                        logging.warning(f"Cleanup task completed with exception: {result}")
-            except asyncio.CancelledError:
-                logging.warning("Cleanup operation was cancelled")
-                # If we're cancelled, make sure to wait for cleanup tasks to complete
-                results = await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-                for result in results:
-                    if isinstance(result, Exception):
-                        logging.warning(f"Cleanup task completed with exception: {result}")
+                # Use asyncio.wait with timeout to ensure cleanup completes
+                done, pending = await asyncio.wait(
+                    cleanup_tasks, 
+                    timeout=5.0,  # 5 second timeout for cleanup
+                    return_when=asyncio.ALL_COMPLETED
+                )
+                
+                # Cancel any pending tasks
+                for task in pending:
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                        
+                # Check results for exceptions
+                for task in done:
+                    try:
+                        await task
+                    except Exception as e:
+                        logging.warning(f"Cleanup task completed with exception: {e}")
+                        
             except Exception as e:
-                logging.warning(f"Unexpected error during cleanup: {e}")
-                # Ensure cleanup tasks are awaited even if unexpected error occurs
-                if cleanup_tasks:
-                    await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+                logging.warning(f"Error during server cleanup: {e}")
+                # Ensure all tasks are awaited even if error occurs
+                for task in cleanup_tasks:
+                    try:
+                        await task
+                    except Exception:
+                        pass
 
     async def process_llm_response(self, llm_response: str) -> str:
         """Process the LLM response and execute tools if needed.
@@ -485,8 +521,18 @@ class ChatSession:
                 # Get LLM response
                 with st.chat_message("assistant"):
                     with st.spinner("Thinking..."):
+                        # Stream the response token by token
+                        message_placeholder = st.empty()
+                        full_response = ""
+                        # Since our LLMClient.get_response already returns the full response,
+                        # we'll simulate streaming by yielding characters
                         llm_response = self.llm_client.get_response(st.session_state.messages)
-                        st.write("Assistant: " + llm_response)
+                        for char in llm_response:
+                            full_response += char
+                            message_placeholder.markdown(full_response + "▌")
+                            # Small delay to simulate streaming
+                            await asyncio.sleep(0.01)
+                        message_placeholder.markdown(full_response)
 
                     # Process LLM response for tool calls
                     result = await self.process_llm_response(llm_response)
