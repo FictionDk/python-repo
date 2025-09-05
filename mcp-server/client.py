@@ -355,33 +355,35 @@ class ChatSession:
         import json
 
         try:
-            tool_call = json.loads(llm_response)
-            if "tool" in tool_call and "arguments" in tool_call:
-                logging.info(f"Executing tool: {tool_call['tool']}")
-                logging.info(f"With arguments: {tool_call['arguments']}")
+            tool_call_arr = json.loads(llm_response)
+            if len(tool_call_arr) > 0:
+                for tool_call in tool_call_arr:
+                    if "tool" in tool_call and "arguments" in tool_call:
+                        logging.info(f"Executing tool: {tool_call['tool']}")
+                        logging.info(f"With arguments: {tool_call['arguments']}")
 
-                for server in self.servers:
-                    tools = await server.list_tools()
-                    if any(tool.name == tool_call["tool"] for tool in tools):
-                        try:
-                            result = await server.execute_tool(
-                                tool_call["tool"], tool_call["arguments"]
-                            )
+                        for server in self.servers:
+                            tools = await server.list_tools()
+                            if any(tool.name == tool_call["tool"] for tool in tools):
+                                try:
+                                    result = await server.execute_tool(
+                                        tool_call["tool"], tool_call["arguments"]
+                                    )
 
-                            if isinstance(result, dict) and "progress" in result:
-                                progress = result["progress"]
-                                total = result["total"]
-                                percentage = (progress / total) * 100
-                                logging.info(
-                                    f"Progress: {progress}/{total} "
-                                    f"({percentage:.1f}%)"
-                                )
+                                    if isinstance(result, dict) and "progress" in result:
+                                        progress = result["progress"]
+                                        total = result["total"]
+                                        percentage = (progress / total) * 100
+                                        logging.info(
+                                            f"Progress: {progress}/{total} "
+                                            f"({percentage:.1f}%)"
+                                        )
 
-                            return f"Tool execution result: {result}"
-                        except Exception as e:
-                            error_msg = f"Error executing tool: {str(e)}"
-                            logging.error(error_msg)
-                            return error_msg
+                                    return f"Tool execution result: {result}"
+                                except Exception as e:
+                                    error_msg = f"Error executing tool: {str(e)}"
+                                    logging.error(error_msg)
+                                    return error_msg
 
                 return f"No server found with tool: {tool_call['tool']}"
             return llm_response
@@ -409,17 +411,24 @@ class ChatSession:
             system_message = (
                 "You are a helpful assistant with access to these tools:\n\n"
                 f"{tools_description}\n"
-                "Choose the appropriate tool based on the user's question. "
+                "Choose the appropriate tools based on the user's question. "
                 "If no tool is needed, reply directly.\n\n"
-                "IMPORTANT: When you need to use a tool, you must ONLY respond with "
+                "IMPORTANT: When you need to use one tool or more tools, respond "
+                "exclusively with a valid JSON array of tool call objects in the exact format below "
                 "the exact JSON object format below, nothing else:\n"
-                "{\n"
-                '    "tool": "tool-name",\n'
+                "[{\n"
+                '    "tool": "tool-name-1",\n'
                 '    "arguments": {\n'
-                '        "argument-name": "value"\n'
+                '        "argument-name": "value-1"\n'
                 "    }\n"
                 "}\n\n"
-                "After receiving a tool's response:\n"
+                "{\n"
+                '    "tool": "tool-name-2",\n'
+                '    "arguments": {\n'
+                '        "argument-name": "value-2"\n'
+                "    }\n"
+                "}]\n\n"
+                "After receiving tool response:\n"
                 "1. Transform the raw data into a natural, conversational response\n"
                 "2. Keep responses concise but informative\n"
                 "3. Focus on the most relevant information\n"
