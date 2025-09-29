@@ -12,8 +12,9 @@ def login(usr, pwd, base_url="http://localhost:8080"):
         response = requests.post(url, json=payload)
         
         if response.status_code == 200:
-            jwt_token = response.json()['token']
-            print(f"✅ 登录成功")
+            result = response.json()
+            jwt_token = result['token']
+            print(f"✅ 登录成功: {result}")
             return jwt_token
         else:
             print(f"❌ 登录失败，状态码: {response.status_code}")

@@ -199,3 +199,48 @@ def get_workspace_members(
     except requests.exceptions.RequestException as e:
         print(f"⚠️ 网络请求出错: {e}")
         return None
+
+
+def retrieve_naive(
+    query: str,
+    workspace_id: str,
+    jwt: str,
+    base_url: str = "http://localhost:8080",
+):
+    """
+    对指定 workspace 执行朴素检索查询。
+    
+    参数:
+        query (str): 检索查询字符串（必填）
+        workspace_id (str): workspace ID（必填）
+        base_url (str): API 基地址
+        jwt (str): JWT 认证令牌（必传）
+    
+    返回:
+        dict: 检索结果 JSON 数据，失败返回 None
+    """
+    url = f"{base_url}/retrieve/naive"
+    if not jwt:
+        print("❌ 错误：jwt 认证令牌为必传参数")
+        return None
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {jwt}"
+    }
+    payload = {
+        "query": query,
+        "workspace_id": workspace_id
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            print("✅ 朴素检索查询成功！")
+            return response.json()
+        else:
+            print(f"❌ 检索失败，状态码: {response.status_code}")
+            print(f"错误信息: {response.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️ 网络请求出错: {e}")
+        return None

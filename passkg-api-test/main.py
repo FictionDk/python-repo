@@ -2,6 +2,8 @@ import requests
 import workspace
 import document
 import auth
+import file
+import chat
 
 model_config = [
     {
@@ -54,10 +56,20 @@ def get_all_models(jwt, base_url="http://localhost:8080"):
         return None
 
 if __name__ == "__main__":
-    jwt = auth.login("stpass","passinside")
-    members = workspace.get_workspace_members("serwos",jwt)
-    for m in members:
-        print(m)
+    jwt = auth.login("admin","stpass",base_url='http://192.168.120.246:31549')
+    # r = file.upload_image_to_workspace("serwos","xiongpian.jpg",jwt=jwt)
+    # print(r)
+    # 测试 chat_stream 功能
+    # print("\n" + "="*50)
+    # print("🧪 正在测试 chat_stream 流式请求...")
+    # print("="*50)
+    # chat.chat_stream(workspace_id="7mofeb", message="标本管理哪些具体的规范要求", jwt=jwt)
+    # members = workspace.get_workspace_members("serwos",jwt)
+    # for m in members:
+    #     print(m)
+
+    # r = workspace.retrieve_naive("血液制备","serwos",jwt)
+    # print(r)
 
     #users = auth.list_users(jwt)
     #for u in users:
@@ -81,4 +93,3 @@ if __name__ == "__main__":
     #print(workspace.get_workspace_model_config("mtlrtq"))
     #print(document.create_document_in_workspace("mtlrtq","test","test.md"))
     #print(document.process_document("5a6e2a28-31d2-43e1-b5fb-858af95c4031"))
-    
