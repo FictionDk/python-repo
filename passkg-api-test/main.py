@@ -60,10 +60,10 @@ if __name__ == "__main__":
     # r = file.upload_image_to_workspace("serwos","xiongpian.jpg",jwt=jwt)
     # print(r)
     # 测试 chat_stream 功能
-    # print("\n" + "="*50)
-    # print("🧪 正在测试 chat_stream 流式请求...")
-    # print("="*50)
-    # chat.chat_stream(workspace_id="7mofeb", message="标本管理哪些具体的规范要求", jwt=jwt)
+    print("\n" + "="*50)
+    print("🧪 正在测试 chat_stream 流式请求...")
+    print("="*50)
+    chat.interactive_chat(workspace_id="7mofeb", jwt=jwt)
     # members = workspace.get_workspace_members("serwos",jwt)
     # for m in members:
     #     print(m)
