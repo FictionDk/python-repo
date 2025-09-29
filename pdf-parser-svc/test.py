@@ -4,7 +4,7 @@ import re
 
 # 定义服务地址和端口
 # url = 'http://localhost:8188/convert'
-url = 'http://192.168.141.203:8188/convert'
+url = 'http://192.168.120.246:30191/convert'
 
 def save_markdown_to_file(markdown_content):
     """将Markdown内容以标题作为文件名保存到本地"""
