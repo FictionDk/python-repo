@@ -63,7 +63,10 @@ if __name__ == "__main__":
     print("\n" + "="*50)
     print("🧪 正在测试 chat_stream 流式请求...")
     print("="*50)
-    chat.interactive_chat(workspace_id="7mofeb", jwt=jwt)
+    messages = chat.interactive_chat(workspace_id="7mofeb", jwt=jwt)
+    chat.push(workspace_id="7mofeb",messages=messages, jwt=jwt)
+    r_list = chat.get_logs("7mofeb",jwt=jwt)
+    print(f"r={r_list}")
     # members = workspace.get_workspace_members("serwos",jwt)
     # for m in members:
     #     print(m)
