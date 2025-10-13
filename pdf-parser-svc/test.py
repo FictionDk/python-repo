@@ -1,10 +1,11 @@
 import requests
 import os
 import re
+import llm
 
 # 定义服务地址和端口
-# url = 'http://localhost:8188/convert'
-url = 'http://192.168.120.246:30191/convert'
+url = 'http://localhost:8188/convert'
+# url = 'http://192.168.120.246:30191/convert'
 
 def save_markdown_to_file(markdown_content):
     """将Markdown内容以标题作为文件名保存到本地"""
@@ -30,37 +31,61 @@ def save_markdown_to_file(markdown_content):
     except Exception as e:
         print(f"保存文件时发生错误：{e}")
 
-# 指定要上传的本地PDF文件路径
-pdf_file_path = 'WST 795-2022.pdf'
-
-# 检查文件是否存在
-if not os.path.exists(pdf_file_path):
-    print(f"错误：文件 {pdf_file_path} 不存在。")
-else:
-    # 以二进制模式打开PDF文件
-    with open(pdf_file_path, 'rb') as pdf_file:
-        # 构造文件上传的字典
-        files = {'pdf': pdf_file}
-        
-        try:
-            # 发送POST请求到Flask服务
-            response = requests.post(url, files=files)
+def test_post():
+    # 指定要上传的本地PDF文件路径
+    pdf_file_path = 'req_t.pdf'
+    # 检查文件是否存在
+    if not os.path.exists(pdf_file_path):
+        print(f"错误：文件 {pdf_file_path} 不存在。")
+    else:
+        # 以二进制模式打开PDF文件
+        with open(pdf_file_path, 'rb') as pdf_file:
+            # 构造文件上传的字典
+            files = {'pdf': pdf_file}
             
-            # 检查响应状态码
-            if response.status_code == 200:
-                # 解析返回的JSON数据
-                result = response.json()
-                markdown_content = result.get('markdown', '')
+            try:
+                # 发送POST请求到Flask服务
+                response = requests.post(url, files=files)
                 
-                # 打印解析后的Markdown内容
-                #print("解析后的Markdown内容：\n")
-                #print(markdown_content)
-                
-                # 调用保存方法
-                save_markdown_to_file(markdown_content)
-            else:
-                print(f"请求失败，状态码：{response.status_code}")
-                print("响应内容：", response.text)
-                
-        except requests.exceptions.RequestException as e:
-            print(f"请求过程中发生错误：{e}")
+                # 检查响应状态码
+                if response.status_code == 200:
+                    # 解析返回的JSON数据
+                    result = response.json()
+                    markdown_content = result.get('markdown', '')
+                    
+                    # 打印解析后的Markdown内容
+                    #print("解析后的Markdown内容：\n")
+                    #print(markdown_content)
+                    
+                    # 调用保存方法
+                    save_markdown_to_file(markdown_content)
+                else:
+                    print(f"请求失败，状态码：{response.status_code}")
+                    print("响应内容：", response.text)
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"请求过程中发生错误：{e}")
+
+
+
+def process_local_image(image_path: str) -> str:
+    """
+    读取本地图片文件并将其转换为Markdown格式。
+    :param image_path: 本地图片文件路径
+    :return: 转换后的Markdown字符串
+    """
+    from PIL import Image
+    
+    # 打开本地图片文件
+    with Image.open(image_path) as img:
+        # 将图片转换为RGB模式（如果需要）
+        if img.mode in ('RGBA', 'LA', 'P'):
+            img = img.convert('RGB')
+        # 调用md_format_from_image方法处理图片
+        return llm.md_format_from_image([img])
+
+def test_llm():
+    r = process_local_image('20251013_1.png')
+    print(r)
+
+test_post()

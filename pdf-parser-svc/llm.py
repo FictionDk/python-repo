@@ -1,6 +1,9 @@
 import requests
 import json
 import os
+import base64
+from io import BytesIO
+from PIL import Image
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -8,6 +11,8 @@ load_dotenv()
 API_PATH = 'http://192.168.120.246:31825/v1/chat/completions'
 API_KEY = os.getenv('API_KEY')
 MODEL_NAME = 'Qwen/Qwen3-235B-A22B-Instruct-2507-FP8'
+if not API_KEY:
+    raise ValueError("Missing required environment variable: API_KEY")
 
 md_format_prompt = '''
 你是一个专业的文档转换助手，负责将 PDF 的原始排版信息转换为结构清晰的 Markdown。
@@ -62,3 +67,128 @@ def fetch(prompt: str, content: str) -> str:
 
 def md_format(elements: list) -> str:
     return fetch(md_format_prompt, json.dumps(elements))
+
+def md_format_from_image(images: list[Image.Image]) -> str:
+    """
+    使用多模态API将图像列表转换为Markdown。根据环境变量 MULTIMODAL_STREAMING 决定使用流式或非流式模式。
+    :param images: PIL图像对象列表
+    :return: Markdown字符串
+    """
+    # 从环境变量加载多模态API配置
+    API_PATH = os.getenv('MULTIMODAL_API_PATH')
+    MODEL_NAME = os.getenv('MULTIMODAL_MODEL_NAME')
+    API_KEY = os.getenv('MULTIMODAL_API_KEY')
+
+    # 从环境变量加载流式配置，取默认值为 false
+    STREAMING = os.getenv('MULTIMODAL_STREAMING', 'false').lower() == 'true'
+
+    # 检查关键配置是否缺失
+    if not API_PATH or not MODEL_NAME:
+        raise ValueError("Missing required environment variable: MULTIMODAL_API_PATH or MODEL_NAME")
+
+    return _md_format_from_image(images, API_PATH, API_KEY, MODEL_NAME, STREAMING, _process_streaming_response)
+
+def _process_streaming_response(resp) -> str:
+    """
+    处理流式API响应。
+    :param resp: requests.Response 对象
+    :return: 从流中提取的Markdown字符串
+    """
+    page_markdown = ""
+    if resp.status_code == 200:
+        for line in resp.iter_lines():
+            if line:
+                line_str = line.decode('utf-8')
+                if line_str.startswith("data:"):
+                    data_str = line_str[5:].strip() # 去除 "data:" 前缀
+                    if data_str == "[DONE]":
+                        break # 流结束
+                    try:
+                        data = json.loads(data_str)
+                        content = data['choices'][0]['delta'].get('content', '')
+                        page_markdown += content
+                    except json.JSONDecodeError:
+                        continue # 跳过无法解析的行
+    else:
+        page_markdown = f"<!-- 无法处理图像，错误: {resp.status_code} {resp.text} -->"
+    return page_markdown
+
+def _process_non_streaming_response(resp) -> str:
+    """
+    处理非流式API响应。
+    :param resp: requests.Response 对象
+    :return: 从响应中提取的Markdown字符串
+    """
+    page_markdown = ""
+    if resp.status_code == 200:
+        try:
+            data = resp.json()
+            page_markdown = data['choices'][0]['message']['content']
+        except (KeyError, json.JSONDecodeError) as e:
+            page_markdown = f"<!-- 解析API响应时出错: {e} -->"
+    else:
+        page_markdown = f"<!-- 无法处理图像，错误: {resp.status_code} {resp.text} -->"
+    return page_markdown
+
+def _md_format_from_image(images: list, path: str, key: str, name: str, is_stream: bool, process_response_func) -> str:
+    """
+    使用多模态API将图像列表转换为Markdown的通用方法。
+    :param images: PIL图像对象列表
+    :param path: API路径
+    :param key: API密钥
+    :param name: 模型名称
+    :param process_response_func: 处理API响应的函数
+    :return: Markdown字符串
+    """
+    full_markdown = ""
+    for _, image in enumerate(images):
+        # 将PIL图像转换为Base64
+        buffered = BytesIO()
+        image.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        img_url = f"data:image/jpeg;base64,{img_str}"
+
+        # 构建请求体
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {key}'
+        }
+        # 在通用方法中，payload的stream字段由调用者决定
+        payload = {
+            "model": name,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": image_format_prompt},
+                        {"type": "image_url", "image_url": {"url": img_url}}
+                    ]
+                }
+            ],
+            "temperature": 0,
+            "stream": is_stream,
+        }
+
+        # 调用API
+        resp = requests.post(path, headers=headers, json=payload)
+        page_markdown = process_response_func(resp)
+        full_markdown += page_markdown + "\n\n"
+
+    return full_markdown.strip()
+
+image_format_prompt = '''
+你是一个专业的文档转换助手，负责将 PDF 的原始排版信息转换为结构清晰的 Markdown。
+我会提供以下信息：
+- 按从上到下的顺序排列的文本行，包含字体大小、是否加粗、内容
+- 提取的表格内容
+请根据这些信息：
+1. 推断标题层级（#、##、###）
+2. 识别正文、列表、代码块、引用等
+3. 将表格转换为 Markdown 表格,如果有合并单元格则使用 **HTML 表格代码**，并嵌入 Markdown 中
+4. 忽略页眉页脚、页码、重复标题
+5. 输出完整、可读性强的 Markdown
+注意：
+- 不要添加额外解释，只输出 Markdown
+- 保持原始语义不变
+- 合理使用列表、分隔线、强调等语法
+'''

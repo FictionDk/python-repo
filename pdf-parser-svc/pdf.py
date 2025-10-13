@@ -1,5 +1,7 @@
 import pdfplumber
 from pdfplumber.page import Page
+from pdf2image import convert_from_path
+from PIL import Image
 
 def get_elements(pdf_path):
     eles = []
@@ -8,6 +10,16 @@ def get_elements(pdf_path):
             p = merge_text_and_tables(page)
             eles.append(p)
     return eles
+
+def extract_images_from_pdf(pdf_path, dpi=200) -> list[Image.Image]:
+    """
+    将PDF的每一页转换为图像。
+    :param pdf_path: PDF文件路径
+    :param dpi: 图像分辨率
+    :return: PIL图像对象列表
+    """
+    images = convert_from_path(pdf_path, dpi=dpi)
+    return images
 
 def merge_text_and_tables(page):
     lines = extract_lines_with_position(page)
@@ -72,4 +84,3 @@ def tests():
     print("========================================================================")
     for obj in obj_arr:
         print(obj)
-
