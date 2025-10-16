@@ -206,10 +206,15 @@ def chat_stream(
                         break
                     else:
                         # 处理数据内容
-                        message_data = json.loads(data_content)['message']
-                        print(f"{message_data}", end="")
-                        full_response += message_data
-                
+                        r_json = json.loads(data_content)
+                        is_end = r_json["isEnd"]
+                        if is_end:
+                            print(f"{r_json["message"]}{r_json["ref"]}")
+                        else:
+                            message_data = r_json['message']
+                            print(f"{message_data}", end="")
+                            full_response += message_data
+
     except requests.exceptions.RequestException as e:
         print(f"⚠️ 网络请求出错: {e}")
         return ""
