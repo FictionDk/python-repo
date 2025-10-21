@@ -11,6 +11,7 @@ class NebulaClient:
     def __init__(self, address=(host, port), username='root', password='nebula'):
         self.config = Config()
         self.config.max_connection_pool_size = 10
+        self.config.timeout = 3000000  # 30秒超时，避免查询结果过大时出现TimeoutError
         self.conn_pool = ConnectionPool()
 
         # 初始化连接池
