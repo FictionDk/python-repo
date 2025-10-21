@@ -48,7 +48,11 @@ class DatabaseConnection:
         except Exception as e:
             raise Exception(f"Error creating connection pools: {str(e)}")
 
-    def insert_batch(self, insert_sql: str, documents: List[Dict[str, Any]], db_opt: DatabaseOperator) -> int:
+    def close_all_connections(self):
+        self.pool_map[DatabaseOperator.KG].closeall()
+        self.pool_map[DatabaseOperator.LG].closeall() 
+
+    def insert_batch(self, sql: str, documents: List[Dict[str, Any]], db_opt: DatabaseOperator) -> int:
         """
         Write documents to the documents table.
         
@@ -67,14 +71,14 @@ class DatabaseConnection:
 
             with conn.cursor() as cursor:
                 # Execute batch insert
-                cursor.executemany(insert_sql, documents)
+                cursor.executemany(sql, documents)
                 conn.commit()
                 return len(documents)
                 
         except Exception as e:
             if conn:
                 conn.rollback()
-            raise Exception(f"Error writing to documents table: {str(e)}")
+            raise Exception(f"Error exec(insert): {sql}: {str(e)}")
         finally:
             if conn:
                 self.pool_map[db_opt].putconn(conn)
@@ -99,7 +103,7 @@ class DatabaseConnection:
         except Exception as e:
             if conn:
                 conn.rollback()
-            raise Exception(f"Error writing to documents table: {str(e)}")
+            raise Exception(f"Error exec(read): {sql}: {str(e)}")
         finally:
             if conn:
                 self.pool_map[db_opt].putconn(conn)

@@ -23,10 +23,7 @@ def transfer():
     """
     db_conn = None
     try:
-        # Initialize database connection
-        logger.info("Initializing database connection...")
         db_conn = DatabaseConnection()
-
         # Initialize reader and writer
         lgOpt, kgOpt = OperatorLG(db_conn), OperatorKG(db_conn)
         
@@ -64,8 +61,9 @@ def transfer():
                 document_chunks.append(mapped_chunk)
         
         logger.info(f"Transformed {len(documents)} documents and {len(document_chunks)} chunks")
+        # print(f"{documents[0]} \n {document_chunks[0]}")
 
-        # Write data to target database
+        #Write data to target database
         logger.info("Writing data to target database...")
         docs_written = kgOpt.write_document(documents)
         chunks_written = kgOpt.write_document_chunks(document_chunks)
@@ -89,8 +87,8 @@ def fill_doc_name():
     print(f"exec doc filling: {lgOpt.transfer_doc_name()}")
 
 def main():
-    # transfer()
-    fill_doc_name()
+    transfer()
+    # fill_doc_name()
 
 if __name__ == "__main__":
     main()

@@ -41,7 +41,8 @@ def map_lightrag_to_documents(doc_full_data: Dict[str, Any],
         # Use the file_path from the first chunk
         file_path = doc_chunks_data[0].get('file_path', '')
         doc_name = extract_filename_from_path(file_path)
-    
+    # (id, content, extraction_prompt, workspace_id, created_at, chunks, 
+    # parent, is_project_doc, last_mod, process_status, name, type, summary, tags)
     mapped_data = {
         'id': doc_full_data['id'],
         'content': doc_full_data['content'],
@@ -49,13 +50,14 @@ def map_lightrag_to_documents(doc_full_data: Dict[str, Any],
         'name': doc_name,
         'created_at': doc_full_data.get('create_time'),
         'last_mod': doc_full_data.get('update_time'),
-        'process_status': 'transferred',
+        'process_status': 'completed',
         'is_project_doc': False,
         'chunks': len(doc_chunks_data) if doc_chunks_data else 0,
-        'type': 'document',
+        'type': 'D',
         'summary': None,
         'tags': None,
-        'extraction_prompt': None
+        'extraction_prompt': '',
+        'parent': ''
     }
     
     return mapped_data

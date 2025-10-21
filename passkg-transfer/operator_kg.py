@@ -11,8 +11,7 @@ VALUES
     %(name)s, %(type)s, %(summary)s, %(tags)s)
 ON CONFLICT (id) DO UPDATE SET
 content = EXCLUDED.content,
-name = EXCLUDED.name,
-update_time = CURRENT_TIMESTAMP
+name = EXCLUDED.name
 '''
 
 chunk_insert_sql = '''
