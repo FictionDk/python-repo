@@ -1,0 +1,62 @@
+
+1. 实现查询Pg数据库方法，将结果映射成list[map[string,any]]格式，如：[{"id":"xxx", "name": "xx", "content": "xxx"},{}]
+```sql
+CREATE TABLE lightrag_doc_full (
+	id varchar(255) NOT NULL,
+	workspace varchar(255) NOT NULL,
+	doc_name varchar(1024) NULL,
+	"content" text NULL,
+	meta jsonb NULL,
+	create_time timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	update_time timestamp NULL,
+	CONSTRAINT lightrag_doc_full_pk PRIMARY KEY (workspace,id)
+);
+CREATE TABLE lightrag_doc_chunks (
+	id varchar(255) NOT NULL,
+	workspace varchar(255) NOT NULL,
+	full_doc_id varchar(256) NULL,
+	chunk_order_index int4 NULL,
+	tokens int4 NULL,
+	"content" text NULL,
+	content_vector public.vector NULL,
+	file_path text NULL,
+	create_time timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	update_time timestamp NULL,
+	llm_cache_list jsonb DEFAULT '[]'::jsonb NULL,
+	CONSTRAINT lightrag_doc_chunks_pk PRIMARY KEY (workspace, id)
+);
+```
+2. 实现写入pg数据库方法，写入数据采用list[map[string,any]]格式，如：[{"id":"xxx", "name": "xx", "content": "xxx"},{}]
+```sql
+CREATE TABLE public.documents (
+	id varchar(36) NOT NULL,
+	"content" text NOT NULL,
+	extraction_prompt text NULL,
+	workspace_id text NOT NULL,
+	created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	chunks int4 NULL,
+	parent varchar NULL,
+	is_project_doc bool DEFAULT false NULL,
+	last_mod time NULL,
+	process_status varchar NULL,
+	"name" varchar NULL,
+	"type" varchar NULL,
+	summary text NULL,
+	tags _varchar NULL,
+	CONSTRAINT documents_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.document_chunks (
+	document_id text NOT NULL,
+	chunk_index text NOT NULL,
+	"text" text NOT NULL,
+	embedding public.vector NULL,
+	CONSTRAINT document_chunks_pkey PRIMARY KEY (document_id, chunk_index)
+);
+```
+3. 实现数据转换方法，将第一步查出来的数据，通过映射转换，写入第二个数据源
+```
+lightrag_doc_full->documents
+lightrag_doc_chunks->document_chunks
+```
+4. 读和写的PG数据源参数来自.env，读数据源LG_xxx，写数据源KG_xxx
+5. lightrag_doc_full的doc_name为null,需要一个方法，基于lightrag_doc_chunks的file_path中截取名称后回写入lightrag_doc_full
