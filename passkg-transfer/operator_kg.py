@@ -54,4 +54,4 @@ class OperatorKG:
         Returns:
             int: Number of records inserted
         """
-        return self.db_conn.insert_batch(chunk_insert_sql, chunks, DatabaseOperator.LG)
+        return self.db_conn.insert_batch(chunk_insert_sql, chunks, DatabaseOperator.KG)
