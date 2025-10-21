@@ -16,7 +16,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def main():
+
+def transfer():
     """
     Main function to orchestrate the data transfer process.
     """
@@ -63,10 +64,10 @@ def main():
                 document_chunks.append(mapped_chunk)
         
         logger.info(f"Transformed {len(documents)} documents and {len(document_chunks)} chunks")
-        
+
         # Write data to target database
         logger.info("Writing data to target database...")
-        docs_written = kgOpt.write_documents(documents)
+        docs_written = kgOpt.write_document(documents)
         chunks_written = kgOpt.write_document_chunks(document_chunks)
         
         logger.info(f"Successfully wrote {docs_written} documents and {chunks_written} chunks to target database")
@@ -80,6 +81,16 @@ def main():
         if db_conn:
             db_conn.close_all_connections()
             logger.info("Closed all database connections")
+
+
+def fill_doc_name():
+    db_conn = DatabaseConnection()
+    lgOpt = OperatorLG(db_conn)
+    print(f"exec doc filling: {lgOpt.transfer_doc_name()}")
+
+def main():
+    # transfer()
+    fill_doc_name()
 
 if __name__ == "__main__":
     main()

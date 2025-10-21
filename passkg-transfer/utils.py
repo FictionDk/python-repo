@@ -3,13 +3,13 @@ from typing import List, Dict, Any
 
 def extract_filename_from_path(file_path: str) -> str:
     """
-    Extract filename from file path, removing extension.
+    Extract filename from file path, splitting on '.' and taking the first part.
     
     Args:
         file_path (str): The full file path
         
     Returns:
-        str: Filename without extension
+        str: First part of filename after splitting on '.'
     """
     if not file_path:
         return ""
@@ -20,7 +20,8 @@ def extract_filename_from_path(file_path: str) -> str:
     # Remove extension (everything after the last dot)
     name_without_ext = os.path.splitext(filename)[0]
     
-    return name_without_ext
+    # Split on '.' and return the first part
+    return name_without_ext.split('.')[0]
 
 def map_lightrag_to_documents(doc_full_data: Dict[str, Any], 
                             doc_chunks_data: List[Dict[str, Any]]) -> Dict[str, Any]:

@@ -2,7 +2,6 @@ import os
 import psycopg2
 from typing import List, Dict, Any
 from psycopg2.pool import SimpleConnectionPool
-from database import DatabaseConnection
 from enum import Enum
 
 from dotenv import load_dotenv
@@ -94,33 +93,44 @@ class DatabaseConnection:
                 raise Exception("Failed to get database connection")
 
             with conn.cursor() as cursor:
-                query = """
-                SELECT id, workspace, doc_name, content, meta, create_time, update_time
-                FROM lightrag_doc_full
-                """
                 cursor.execute(sql)
-                results = cursor.fetchall()
-                
-                # Convert to list of dictionaries
-                records = []
-                for row in results:
-                    record = {
-                        'id': row['id'],
-                        'workspace': row['workspace'],
-                        'doc_name': row['doc_name'],
-                        'content': row['content'],
-                        'meta': row['meta'],
-                        'create_time': row['create_time'],
-                        'update_time': row['update_time']
-                    }
-                    records.append(record)
-                
-                return records
-                
+                return cursor.fetchall()
+
         except Exception as e:
             if conn:
                 conn.rollback()
             raise Exception(f"Error writing to documents table: {str(e)}")
+        finally:
+            if conn:
+                self.pool_map[db_opt].putconn(conn)
+                
+    def update(self, update_sql: str, params: tuple, db_opt: DatabaseOperator) -> int:
+        """
+        Execute an UPDATE statement on the specified database.
+        
+        Args:
+            update_sql (str): The UPDATE SQL statement
+            params (tuple): Parameters for the SQL statement
+            db_opt (DatabaseOperator): Which database to update (LG or KG)
+            
+        Returns:
+            int: Number of rows affected
+        """
+        conn = None
+        try:
+            conn : psycopg2.extensions.connection = self.pool_map[db_opt].getconn()
+            if not conn:
+                raise Exception("Failed to get database connection")
+
+            with conn.cursor() as cursor:
+                cursor.execute(update_sql, params)
+                conn.commit()
+                return cursor.rowcount
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise Exception(f"Error executing UPDATE statement: {str(e)}")
         finally:
             if conn:
                 self.pool_map[db_opt].putconn(conn)

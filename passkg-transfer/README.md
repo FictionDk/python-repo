@@ -1,3 +1,4 @@
+# 整体目标
 
 1. 实现查询Pg数据库方法，将结果映射成list[map[string,any]]格式，如：[{"id":"xxx", "name": "xx", "content": "xxx"},{}]
 ```sql
@@ -60,3 +61,9 @@ lightrag_doc_chunks->document_chunks
 ```
 4. 读和写的PG数据源参数来自.env，读数据源LG_xxx，写数据源KG_xxx
 5. lightrag_doc_full的doc_name为null,需要一个方法，基于lightrag_doc_chunks的file_path中截取名称后回写入lightrag_doc_full
+
+# 代码结构
+1. database.py 数据库连接管理和操作
+2. operator_*.py 不同数据库需要的数据操作
+3. utils.py 文件、数据映射操作
+4. main.py 主函数入口，模块组合完成最终任务
