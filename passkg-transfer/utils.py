@@ -1,4 +1,5 @@
 import os
+import csv
 from typing import List, Dict, Any
 
 def extract_filename_from_path(file_path: str) -> str:
@@ -22,6 +23,164 @@ def extract_filename_from_path(file_path: str) -> str:
     
     # Split on '.' and return the first part
     return name_without_ext.split('.')[0]
+
+def _process_source_id(source_id: str, chunk_to_full_doc_mapping: Dict[str, str]) -> str:
+    """
+    Process source_id by splitting on <SEP>, mapping chunk IDs to full document IDs,
+    and joining with commas. Removes leading comma and prints warning if result is empty.
+    
+    Args:
+        source_id (str): The source_id string containing chunk IDs separated by <SEP>
+        chunk_to_full_doc_mapping (Dict[str, str]): Mapping from chunk IDs to full document IDs
+        
+    Returns:
+        str: Processed ref string with full document IDs joined by commas
+    """
+    if not source_id:
+        print("Warning: source_id is empty or None")
+        return ""
+        
+    full_doc_ids = []
+    # Split source_id by <SEP> to get chunk IDs
+    chunk_ids = source_id.split('<SEP>')
+    # Map each chunk ID to its full document ID
+    for chunk_id in chunk_ids:
+        chunk_id = chunk_id.strip()  # Remove any whitespace
+        if chunk_id in chunk_to_full_doc_mapping:
+            full_doc_ids.append(chunk_to_full_doc_mapping[chunk_id])
+    
+    # Join full document IDs with commas
+    ref = ','.join(full_doc_ids) if full_doc_ids else ''
+    
+    # Remove leading comma if present
+    if ref.startswith(','):
+        ref = ref[1:]
+    
+    # Print warning if ref is empty
+    if not ref:
+        print(f"Warning: Processed ref is empty for source_id: {source_id}")
+    
+    return ref
+
+def schema_mapper(data: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Map Neo4j graph data to Nebula graph schema format.
+    
+    Args:
+        data (Dict): Graph data with 'nodes' and 'relationships' keys
+        
+    Returns:
+        Dict: Mapped data with 'entities' (TAGs) and 'relations' (EDGEs) in Nebula format
+    """
+    entities = []
+    relations = []
+    
+    # Read chunk to full document mapping
+    chunk_to_full_doc_mapping = read_id_mapping_from_csv('chunk_to_full_doc_mapping.csv')
+    
+    # Map nodes to Nebula TAG entities
+    for node in data.get('nodes', []):
+        # Extract properties from the node
+        props : dict = node['properties']
+        
+        # Process source_id to get full document references
+        source_id = props.get('source_id', '')
+        ref = _process_source_id(source_id, chunk_to_full_doc_mapping)
+        
+        # Create entity with Nebula schema properties
+        entity = {
+            'id': node['id'],
+            'name': props.get('entity_id', ''),
+            'type': props.get('entity_type', ''),
+            'description': props.get('description', ''),
+            'ref': ref,
+            'created_at': props.get('created_at', 0)
+        }
+        entities.append(entity)
+        props.clear()
+
+    # Map relationships to Nebula EDGE relations
+    for rel in data.get('relationships', []):
+        # Extract properties from the relationship
+        props = rel['properties']
+        
+        # Process source_id to get full document references
+        source_id = props.get('source_id', '')
+        ref = _process_source_id(source_id, chunk_to_full_doc_mapping)
+        
+        # Create relation with Nebula schema properties
+        relation = {
+            'source_id': rel['start_id'],
+            'target_id': rel['end_id'],
+            'keywords': props.get('keywords', ''),
+            'description': props.get('description', ''),
+            'weight': props.get('weight', 0.0),
+            'ref': ref
+        }
+        relations.append(relation)
+    
+    return {
+        'entities': entities,
+        'relations': relations
+    }
+
+def save_graph_to_csv(data: Dict[str, List[Dict[str, Any]]], nodes_file: str = 'nodes.csv', edges_file: str = 'edges.csv'):
+    """
+    Save graph data to CSV files.
+    
+    Args:
+        data (Dict): Graph data with 'entities' and 'relations' keys
+        nodes_file (str): Output file for nodes/entities
+        edges_file (str): Output file for edges/relations
+    """
+    # Save entities (nodes) to CSV
+    if 'entities' in data and data['entities']:
+        with open(nodes_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'name', 'type', 'description', 'ref', 'created_at'])
+            writer.writeheader()
+            writer.writerows(data['entities'])
+    
+    # Save relations (edges) to CSV
+    if 'relations' in data and data['relations']:
+        with open(edges_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=['source_id', 'target_id', 'keywords', 'description', 'weight', 'ref'])
+            writer.writeheader()
+            writer.writerows(data['relations'])
+
+def read_graph_from_csv(nodes_file: str = 'nodes.csv', edges_file: str = 'edges.csv') -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Read graph data from CSV files and convert to JSON objects.
+    
+    Args:
+        nodes_file (str): Input file for nodes/entities
+        edges_file (str): Input file for edges/relations
+        
+    Returns:
+        Dict: Graph data with 'entities' and 'relations' keys
+    """
+    data = {'entities': [], 'relations': []}
+    
+    # Read entities (nodes) from CSV
+    try:
+        with open(nodes_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            data['entities'] = [row for row in reader]
+    except FileNotFoundError:
+        print(f"Nodes file {nodes_file} not found. Continuing with empty nodes list.")
+    except Exception as e:
+        print(f"Error reading nodes file {nodes_file}: {str(e)}")
+    
+    # Read relations (edges) from CSV
+    try:
+        with open(edges_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            data['relations'] = [row for row in reader]
+    except FileNotFoundError:
+        print(f"Edges file {edges_file} not found. Continuing with empty edges list.")
+    except Exception as e:
+        print(f"Error reading edges file {edges_file}: {str(e)}")
+    
+    return data
 
 def map_lightrag_to_documents(doc_full_data: Dict[str, Any], 
                             doc_chunks_data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -80,3 +239,40 @@ def map_lightrag_chunks_to_document_chunks(chunk_data: Dict[str, Any]) -> Dict[s
     }
     
     return mapped_data
+
+def save_id_mapping_to_csv(mapping: Dict[str, str], filepath: str) -> None:
+    """
+    Save chunk id to full document id mapping to a CSV file.
+    
+    Args:
+        mapping (Dict[str, str]): Dictionary mapping chunk id to full document id
+        filepath (str): Path to the output CSV file
+    """
+    with open(filepath, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=['chunk_id', 'full_doc_id'])
+        writer.writeheader()
+        for chunk_id, full_doc_id in mapping.items():
+            writer.writerow({'chunk_id': chunk_id, 'full_doc_id': full_doc_id})
+
+def read_id_mapping_from_csv(filepath: str) -> Dict[str, str]:
+    """
+    Read chunk id to full document id mapping from a CSV file.
+    
+    Args:
+        filepath (str): Path to the input CSV file
+        
+    Returns:
+        Dict[str, str]: Dictionary mapping chunk id to full document id
+    """
+    mapping = {}
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                mapping[row['chunk_id']] = row['full_doc_id']
+    except FileNotFoundError:
+        print(f"Mapping file {filepath} not found. Returning empty mapping.")
+    except Exception as e:
+        print(f"Error reading mapping file {filepath}: {str(e)}")
+    
+    return mapping

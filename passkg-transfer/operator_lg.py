@@ -82,6 +82,19 @@ class OperatorLG:
             'full_docs': full_docs,
             'doc_chunks': doc_chunks
         }
+
+    def read_chunk_to_full_doc_mapping(self) -> Dict[str, str]:
+        """
+        Read the mapping between chunk id and full document id from lightrag_doc_chunks table.
+        
+        Returns:
+            Dict[str, str]: Dictionary mapping chunk id to full document id
+        """
+        chunks = self.read_doc_chunks()
+        mapping = {}
+        for chunk in chunks:
+            mapping[chunk['id']] = f"{chunk['full_doc_id']}_{chunk['chunk_order_index']}"
+        return mapping
         
     def transfer_doc_name(self) -> int:
         """
@@ -96,7 +109,6 @@ class OperatorLG:
         data = self.read_all_data()
         full_docs = data['full_docs']
         doc_chunks = data['doc_chunks']
-        print(full_docs[0]['doc_name'])
         
         # Create a mapping of full_doc_id to file_path from chunks
         # Since all chunks for the same document have the same file_path, we can use any chunk

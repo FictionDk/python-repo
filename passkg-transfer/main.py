@@ -1,7 +1,9 @@
 from database import DatabaseConnection
 from operator_lg import OperatorLG
 from operator_kg import OperatorKG
-from utils import map_lightrag_to_documents, map_lightrag_chunks_to_document_chunks
+from utils import map_lightrag_to_documents, map_lightrag_chunks_to_document_chunks, schema_mapper, save_graph_to_csv, save_id_mapping_to_csv, read_graph_from_csv
+from neo_exporter import export_neo4j_data
+from nebula_import import grahp_import
 import logging
 import sys
 
@@ -15,7 +17,6 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-
 
 def transfer():
     """
@@ -63,7 +64,7 @@ def transfer():
         logger.info(f"Transformed {len(documents)} documents and {len(document_chunks)} chunks")
         # print(f"{documents[0]} \n {document_chunks[0]}")
 
-        #Write data to target database
+        # Write data to target database
         logger.info("Writing data to target database...")
         docs_written = kgOpt.write_document(documents)
         chunks_written = kgOpt.write_document_chunks(document_chunks)
@@ -80,15 +81,52 @@ def transfer():
             db_conn.close_all_connections()
             logger.info("Closed all database connections")
 
-
 def fill_doc_name():
     db_conn = DatabaseConnection()
     lgOpt = OperatorLG(db_conn)
     print(f"exec doc filling: {lgOpt.transfer_doc_name()}")
 
+def _export_graph_data():
+    logger.info("Exporting data from Neo4j...")
+    raw_data = export_neo4j_data()
+    logger.info(f"Exported {len(raw_data['nodes'])} nodes and {len(raw_data['relationships'])} relationships")
+    # print(f"=>{raw_data['nodes'][0]}")
+    # print(f"=>{raw_data['relationships'][0]}")
+
+    # Step 3: Transform data to Nebula format
+    logger.info("Mapping data to Nebula schema format...")
+    mapped_data = schema_mapper(raw_data)
+    logger.info(f"Mapped {len(mapped_data['entities'])} entities and {len(mapped_data['relations'])} relations")
+
+    # Step 4: Save to CSV files
+    logger.info("Saving data to CSV files...")
+    save_graph_to_csv(mapped_data)
+
+def _import_graph_data():
+    data = read_graph_from_csv()
+    e_count, r_count = grahp_import('default', data['entities'], data['relations'])
+    logger.info(f"import count {e_count}, {r_count}")
+
+# 图数据迁移
+def migrate_graph_data():
+    #_export_graph_data()
+    _import_graph_data()
+    logger.info("Graph data migration completed successfully!")
+
+# 读取映射关系，写入csv
+def export_mapping():
+    db_conn = DatabaseConnection()
+    lgOpt = OperatorLG(db_conn)
+    mapping = lgOpt.read_chunk_to_full_doc_mapping()
+    save_id_mapping_to_csv(mapping, 'chunk_to_full_doc_mapping.csv')
+    logger.info(f"Exported {len(mapping)} chunk to full document mappings to CSV")
+
 def main():
-    transfer()
+    # Execute the regular data transfer
+    # transfer()
     # fill_doc_name()
+    # export_mapping()
+    migrate_graph_data()
 
 if __name__ == "__main__":
     main()
