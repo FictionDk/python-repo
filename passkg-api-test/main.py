@@ -32,6 +32,9 @@ model_config = [
     }
 ]
 
+local_host='http://localhost:8080'
+remote_host='http://192.168.120.246:31549'
+
 def get_all_models(jwt, base_url="http://localhost:8080"):
     """
     获取所有已配置的模型信息。
@@ -55,15 +58,56 @@ def get_all_models(jwt, base_url="http://localhost:8080"):
         print(f"⚠️ 网络请求出错: {e}")
         return None
 
+def create_workspace(jwt):
+    ws = workspace.create_workspace(
+        name="LightRAG_For_ST",
+        description="Recall comparison test",
+        jwt=jwt
+    )
+    if ws:
+        print("创建的 workspace:", ws)
+    workspace.set_workspace_model_config(ws, model_config, jwt=jwt)
+
+def batch_process_docs(jwt):
+    doc_list = document.get_docs(base_url=remote_host,jwt=jwt)
+    if not doc_list:
+        print("❌ 未获取到文档列表，批量处理终止")
+        return False
+    
+    processed_count = 0
+    failed_count = 0
+    
+    print(f"✅ 开始批量处理 {len(doc_list)} 个文档...")
+    
+    for doc in doc_list:
+        doc_id = doc.get("ID")
+        doc_name = doc.get("Name", "Unknown")
+        if not doc_id:
+            print(f"⚠️  跳过文档：缺少 ID 字段 - {doc_name}")
+            failed_count += 1
+            continue
+        result = document.process_document(base_url=remote_host, document_id=doc_id, jwt=jwt)
+        if result:
+            print(f"✅ 成功提交文档处理: {doc_name}")
+            processed_count += 1
+        else:
+            print(f"❌ 文档提交失败: {doc_name}")
+            failed_count += 1
+    print(f"\n🎉 批量处理完成！")
+    print(f"成功: {processed_count}, 失败: {failed_count}")
+    return processed_count > 0
+
 if __name__ == "__main__":
-    jwt = auth.login("admin","stpass",base_url='http://192.168.120.246:31549')
+    jwt = auth.login("admin","stpass",base_url=remote_host)
+    batch_process_docs(jwt)
+    # create_workspace(jwt)
     # r = file.upload_image_to_workspace("serwos","xiongpian.jpg",jwt=jwt)
     # print(r)
     # 测试 chat_stream 功能
-    print("\n" + "="*50)
-    print("🧪 正在测试 chat_stream 流式请求...")
-    print("="*50)
-    messages = chat.interactive_chat(workspace_id="2kbebs", jwt=jwt)
+    # print("\n" + "="*50)
+    # print("🧪 正在测试 chat_stream 流式请求...")
+    # print("="*50)
+    # messages = chat.interactive_chat(workspace_id="2kbebs", jwt=jwt)
     # chat.push(workspace_id="7mofeb",messages=messages, jwt=jwt)
     # r_list = chat.get_logs("7mofeb",jwt=jwt)
     # print(f"r={r_list}")

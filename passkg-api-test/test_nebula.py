@@ -111,14 +111,14 @@ def test_find_duplicate_names():
         # 关闭连接
         client.close()
 
-def test_query(space, nGQL_arr: list):
+def test_query(space = None, nGQL_arr: list = None):
     client = NebulaClient()
     try:
         client.execute_query(f"USE `{space}`")
         for nGQL in nGQL_arr:
             r = client.execute_query(nGQL)
             print("*"*40)
-            print(f"查询结果行数: {r.row_size()}")
+            print(f"{r.is_succeeded()}/{r.error_msg()} 查询结果行数: {r.row_size()}")
             for i in range(r.row_size()):
                 print(f"第 {i+1} 行: {r.row_values(i)}")
         print("*"*40)
@@ -128,6 +128,31 @@ def test_query(space, nGQL_arr: list):
     finally:
         client.close()
 
+create_tag_entity = """
+CREATE TAG IF NOT EXISTS entity(
+    name string,
+    type string,
+    description string,
+    ref string,
+    created_at timestamp
+);
+"""
+create_edge_relation = """
+CREATE EDGE IF NOT EXISTS relation(
+    keywords string,
+    description string,
+    weight double,
+    ref string
+);
+"""
+
 if __name__ == "__main__":
-    test_find_duplicate_names()
-    #test_query('2kbebs', [n_gql_0, n_gql_4])
+    #test_find_duplicate_names()
+    #test_query('default', [n_gql_0, n_gql_4])
+    #test_query(nGQL_arr = ['DROP SPACE `default`'])
+    test_query('cowherd', ['SHOW TAGS'])
+    # test_query(nGQL_arr = ['DROP SPACE `default`', 
+    #                        'CREATE SPACE IF NOT EXISTS `default` (vid_type=INT64, partition_num=10, replica_factor=1, charset = utf8, collate = utf8_bin)',
+    #                        'use default',
+    #                         create_tag_entity,
+    #                         create_edge_relation])

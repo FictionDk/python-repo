@@ -94,3 +94,41 @@ def create_document_in_workspace(
     except requests.exceptions.RequestException as e:
         print(f"⚠️ 网络请求出错: {e}")
         return None
+
+def get_docs(workspace_id: str = "cowherd",
+             base_url: str = "http://localhost:8080",
+             jwt: str = None) -> list[dict[str, any]]:
+    """
+    获取指定 workspace 中的所有文档列表。
+    
+    参数:
+        workspace_id (str): workspace 的 ID，默认为 "cowherd"
+        base_url (str): API 地址，默认为 "http://localhost:8080"
+        jwt (str): JWT 认证令牌（必传）
+    
+    返回:
+        list[dict]: 文档对象列表，每个文档为字典格式，失败返回 None
+    """
+    if not jwt:
+        print("❌ 错误：jwt 认证令牌为必传参数")
+        return None
+        
+    url = f"{base_url}/workspaces/{workspace_id}/documents"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {jwt}"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            print("✅ 成功获取文档列表！")
+            return response.json()
+        else:
+            print(f"❌ 获取文档列表失败，状态码: {response.status_code}")
+            print(f"错误信息: {response.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️ 网络请求出错: {e}")
+        return None
+
