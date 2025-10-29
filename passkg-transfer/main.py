@@ -3,7 +3,9 @@ from operator_lg import OperatorLG
 from operator_kg import OperatorKG
 from utils import map_lightrag_to_documents, map_lightrag_chunks_to_document_chunks, schema_mapper, save_graph_to_csv, save_id_mapping_to_csv, read_graph_from_csv
 from neo_exporter import export_neo4j_data
+from nebula_export import export_nebula_data
 from nebula_import import grahp_import
+from kg_import import post
 import logging
 import sys
 
@@ -104,13 +106,23 @@ def _export_graph_data():
 
 def _import_graph_data():
     data = read_graph_from_csv()
-    e_count, r_count = grahp_import('default', data['entities'], data['relations'])
-    logger.info(f"import count {e_count}, {r_count}")
+    # Use the new post method to send data to the remote API
+    success = post(workspace_id='default', data=data)
+    if success:
+        logger.info("Graph data successfully pushed to remote API.")
+    else:
+        logger.error("Failed to push graph data to remote API.")
+        raise Exception("Graph data import via API failed.")
 
 # 图数据迁移
 def migrate_graph_data():
     #_export_graph_data()
-    _import_graph_data()
+
+    data = export_nebula_data('5vm9t8')
+    save_graph_to_csv(data)
+
+
+    #_import_graph_data()
     logger.info("Graph data migration completed successfully!")
 
 # 读取映射关系，写入csv
