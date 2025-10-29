@@ -1,0 +1,6 @@
+*.png
+*.pdf
+*.md
+.git
+
+test.py
