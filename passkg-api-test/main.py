@@ -80,12 +80,13 @@ def batch_process_docs(jwt):
     print(f"✅ 开始批量处理 {len(doc_list)} 个文档...")
     
     for doc in doc_list:
-        doc_id = doc.get("ID")
-        doc_name = doc.get("Name", "Unknown")
+        doc_id, doc_name, doc_status = doc.get("ID"), doc.get("Name", "Unknown"), doc.get('ProcessStatus', '')
         if not doc_id:
             print(f"⚠️  跳过文档：缺少 ID 字段 - {doc_name}")
             failed_count += 1
             continue
+        # if doc_status == 'completed':
+        #     continue
         result = document.process_document(base_url=remote_host, document_id=doc_id, jwt=jwt)
         if result:
             print(f"✅ 成功提交文档处理: {doc_name}")

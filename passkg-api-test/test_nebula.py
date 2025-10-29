@@ -77,18 +77,56 @@ RETURN DISTINCT
 ORDER BY hop_count, name
 '''
 
-def test_find_duplicate_names():
+def test_find_duplicate_names(space_name):
     # 创建客户端实例
     client = NebulaClient()
     try:
-        # 指定要查询的space名称
-        space_name = "2kbebs"
+        result = client.execute_query(f"USE `{space_name}`")
+        if not result or not result.is_succeeded():
+            print(f"❌ 无法切换到space {space_name}: {result.error_msg() if result else 'Unknown error'}")
+            return {}
 
-        # 调用方法查找重复的name
-        duplicates = client.find_duplicate_names(space_name)        
+        result = client.execute_query("MATCH (v:entity) RETURN id(v) as id, properties(v).name as name")
+        if not result or not result.is_succeeded():
+            print(f"❌ 查询执行失败: {result.error_msg() if result else 'Unknown error'}")
+            return {}
+
+        # 处理查询结果，收集name到id的映射
+        name_to_ids = {}
+        # 超长节点名称收集
+        extra_long_names = []
+        
+        # 获取id和name列的值
+        id_values = result.column_values("id")
+        name_values = result.column_values("name")
+        
+        # 遍历所有行
+        for i in range(len(id_values)):
+            node_id = id_values[i].cast()
+            name_value = name_values[i]
+            # 处理name值可能为null的情况
+            name = name_value.cast() if not name_value.is_null() else 'None'
+            if name not in name_to_ids:
+                name_to_ids[name] = []
+            list(name_to_ids[name]).append(node_id)
+        
+        # 筛选出重复的name（出现次数大于1）
+        duplicates = {name: ids for name, ids in name_to_ids.items() if len(ids) > 1 and name is not None}
+        # 筛选name长度超过12的name
+        extra_long_names = [name for name, _ in name_to_ids.items() if len(name) > 18]
+        if duplicates:
+            print(f"✅ 总数：{len(id_values)}; 找到 {len(duplicates)} 个重复的name值:")
+        else:
+            print("✅ 未找到重复的name值")
+
+        if len(extra_long_names) > 1:
+            for name in extra_long_names:
+                print(name)
+        print("*"*40)
+        print(f"总数：{len(id_values)};找到{len(extra_long_names)} 条超长name")
         # 打印详细信息
-        for name, ids in duplicates.items():
-            print(f"  节点名: '{name}', 出现次数: {len(ids)}")
+        # for name, ids in duplicates.items():
+        #     print(f"  节点名: '{name}', 出现次数: {len(ids)}")
             # for node_id in ids:
             #     # 根据节点ID查询节点详情
             #     detail_query = f'''
@@ -101,10 +139,10 @@ def test_find_duplicate_names():
             #     '''
             #     result = client.execute_query(detail_query)
             #     if result is not None and result.is_succeeded():
-            #         # 直接打印ResultSet，它会包含所有属性
             #         print(f"    节点详情 (ID: {node_id}):\n{result}")
             #     else:
             #         print(f"    ❌ 无法获取节点 {node_id} 的详情: {result.error_msg() if result else 'Unknown error'}")
+
     except Exception as e:
         print(f"❌ 测试过程中发生错误: {e}")
     finally:
@@ -145,14 +183,9 @@ CREATE EDGE IF NOT EXISTS relation(
     ref string
 );
 """
+create_workspace = 'CREATE SPACE IF NOT EXISTS `cowherd` (vid_type=INT64, partition_num=10, replica_factor=1, charset = utf8, collate = utf8_bin)'
 
+# 2kbebs
 if __name__ == "__main__":
-    #test_find_duplicate_names()
+    test_find_duplicate_names('cowherd')
     #test_query('default', [n_gql_0, n_gql_4])
-    #test_query(nGQL_arr = ['DROP SPACE `default`'])
-    test_query('cowherd', ['SHOW TAGS'])
-    # test_query(nGQL_arr = ['DROP SPACE `default`', 
-    #                        'CREATE SPACE IF NOT EXISTS `default` (vid_type=INT64, partition_num=10, replica_factor=1, charset = utf8, collate = utf8_bin)',
-    #                        'use default',
-    #                         create_tag_entity,
-    #                         create_edge_relation])
