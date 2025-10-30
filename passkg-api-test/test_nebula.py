@@ -77,6 +77,30 @@ RETURN DISTINCT
 ORDER BY hop_count, name
 '''
 
+q_1 = 'MATCH (v:entity) WHERE id(v) == "-2230898713318503079" RETURN id(v) as id, properties(v).name as name, properties(v).type as type, properties(v).description as description, properties(v).ref as ref'
+
+q_2 = '''
+MATCH (v:entity) WHERE properties(v).name IN ["血小板配型方法","血小板","配型方法"] RETURN id(v) AS id, properties(v).name AS name, properties(v).type AS type, properties(v).ref AS ref
+'''
+q_e_count = 'MATCH (v) RETURN COUNT(v) AS vertex_count;'
+
+q_r_count = 'MATCH ()-[e]->() RETURN COUNT(e) AS edge_count;'
+
+q_3 = 'FETCH PROP ON entity 8732638000965776320 YIELD properties(vertex);'
+
+drop_ngql = 'DROP SPACE `cowherd`'
+
+show_entity = '''
+MATCH (v:entity) RETURN id(v) as id, properties(v).name as name, properties(v).type as type, properties(v).description as description, properties(v).ref as ref
+LIMIT 10
+'''
+show_relation = '''
+MATCH (v:entity)-[e:relation]->(u:entity) RETURN id(v) as source_id, id(u) as target_id, properties(v).name as source_name, properties(u).name as target_name, properties(e).keywords as keywords, properties(e).description as description, properties(e).weight as weight, properties(e).ref as ref 
+LIMIT 10
+'''
+
+add_host = 'ADD HOST "storaged0":9779;'
+
 def test_find_duplicate_names(space_name):
     # 创建客户端实例
     client = NebulaClient()
@@ -166,6 +190,23 @@ def test_query(space = None, nGQL_arr: list = None):
     finally:
         client.close()
 
+def exec(n_gql):
+    """执行nGQL命令，捕获所有异常，失败不退出"""
+    client = None
+    try:
+        client = NebulaClient()
+        result = client.execute_query(n_gql)
+        if result is not None and result.is_succeeded():
+            print(f"✅ 执行成功: {n_gql}")
+        else:
+            error_msg = result.error_msg() if result else "Unknown error"
+            print(f"❌ 执行失败: {error_msg}")
+    except Exception as e:
+        print(f"❌ 执行异常: {e}")
+    finally:
+        if client:
+            client.close()
+
 create_tag_entity = """
 CREATE TAG IF NOT EXISTS entity(
     name string,
@@ -187,5 +228,6 @@ create_workspace = 'CREATE SPACE IF NOT EXISTS `cowherd` (vid_type=INT64, partit
 
 # 2kbebs
 if __name__ == "__main__":
-    test_find_duplicate_names('cowherd')
-    #test_query('default', [n_gql_0, n_gql_4])
+    #test_find_duplicate_names('cowherd')
+    #test_query('cowherd', [drop_ngql])
+    exec(drop_ngql)

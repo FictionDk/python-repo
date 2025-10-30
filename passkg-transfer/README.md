@@ -76,3 +76,10 @@ lightrag_doc_chunks->document_chunks
 4. main.py 主函数入口，模块组合完成最终任务
 5. neo_exporter.py neo4j导出任务
 6. nebula_import.py nebula导入任务
+
+
+# pyinstaller打包
+
+pyinstaller -F main.py utils.py kg_import.py -n kgtransfer
+
+pyinstaller -F main.py utils.py operator_kg.py database.py -n pgtansfer

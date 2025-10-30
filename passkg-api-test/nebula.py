@@ -7,6 +7,9 @@ from nebula3.data.ResultSet import ResultSet
 host="192.168.120.246"
 port=32586
 
+# host="192.168.98.11"
+# port=9669
+
 class NebulaClient:
     def __init__(self, address=(host, port), username='root', password='nebula'):
         self.config = Config()

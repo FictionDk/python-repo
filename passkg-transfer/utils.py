@@ -147,6 +147,28 @@ def save_graph_to_csv(data: Dict[str, List[Dict[str, Any]]], nodes_file: str = '
             writer.writeheader()
             writer.writerows(data['relations'])
 
+def _strip_quotes_from_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recursively strip surrounding double quotes from string values in a dictionary.
+    
+    Args:
+        d (Dict[str, Any]): Dictionary to process
+        
+    Returns:
+        Dict[str, Any]: Dictionary with quotes stripped from string values
+    """
+    result = {}
+    for k, v in d.items():
+        if isinstance(v, str):
+            # Strip surrounding double quotes if present
+            if v.startswith('"') and v.endswith('"'):
+                result[k] = v[1:-1]
+            else:
+                result[k] = v
+        else:
+            result[k] = v
+    return result
+
 def read_graph_from_csv(nodes_file: str = 'nodes.csv', edges_file: str = 'edges.csv') -> Dict[str, List[Dict[str, Any]]]:
     """
     Read graph data from CSV files and convert to JSON objects.
@@ -164,7 +186,7 @@ def read_graph_from_csv(nodes_file: str = 'nodes.csv', edges_file: str = 'edges.
     try:
         with open(nodes_file, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            data['entities'] = [row for row in reader]
+            data['entities'] = [_strip_quotes_from_dict(row) for row in reader]
     except FileNotFoundError:
         print(f"Nodes file {nodes_file} not found. Continuing with empty nodes list.")
     except Exception as e:
@@ -174,7 +196,7 @@ def read_graph_from_csv(nodes_file: str = 'nodes.csv', edges_file: str = 'edges.
     try:
         with open(edges_file, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            data['relations'] = [row for row in reader]
+            data['relations'] = [_strip_quotes_from_dict(row) for row in reader]
     except FileNotFoundError:
         print(f"Edges file {edges_file} not found. Continuing with empty edges list.")
     except Exception as e:

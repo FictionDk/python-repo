@@ -3,7 +3,7 @@ import os
 
 
 def process_document(document_id: str, 
-                     prompt_id: str = "9b6f9f92-dafb-495f-acf8-b2b7cac2ce44", 
+                     prompt_id: str = "74d34b61-e808-4c27-a402-d07efc9d79ad", 
                      base_url: str = "http://localhost:8080",
                      jwt: str = None):
     url = f"{base_url}/documents/{document_id}/process"
@@ -15,7 +15,15 @@ def process_document(document_id: str,
         "Authorization": f"Bearer {jwt}"
     }
     try:
-        response = requests.post(url, json={"promptId":prompt_id}, headers=headers)
+        response = requests.post(url, json={
+            "extractionPrompt":prompt_id,
+            "kgMergeOptions":{
+                "descriptionMergeStrategy": "llm",
+                "chunkIdStrategy": "fifo",
+                "chunkIdMaxCount": 100,
+                "advanced":{"mergeSummaryMaxTokens": 1500}
+            }
+        }, headers=headers)
         if response.status_code == 202:
             print("✅ 文档处理提交成功！")
             return response.json()

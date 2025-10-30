@@ -4,7 +4,7 @@ import logging
 # Configure logging
 logger = logging.getLogger(__name__)
 
-def post(workspace_id: str, data: dict, batch_size: int = 100, base_url: str = "http://localhost:8080"):
+def post(workspace_id: str, data: dict, batch_size: int = 1000, base_url: str = "http://localhost:8080"):
     """
     Post entities and relations data to the remote batch import API.
 
@@ -22,7 +22,7 @@ def post(workspace_id: str, data: dict, batch_size: int = 100, base_url: str = "
     Returns:
         bool: True if the import was successful (HTTP 200), False otherwise.
     """
-    jwt = login('admin', 'stpass')
+    jwt = login('admin', 'stpass', base_url=base_url)
     url = f"{base_url}/workspaces/{workspace_id}/graph/batch-import"
     headers = {
         "Content-Type": "application/json",
