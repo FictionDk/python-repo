@@ -27,7 +27,7 @@ embedding = EXCLUDED.embedding
 
 class OperatorKG:
     """
-    Handles writing data to the target PostgreSQL database (passkg schema).
+    Handles writing data to and reading/exporting data from the target PostgreSQL database (passkg schema).
     """
     
     def __init__(self, db_connection: DatabaseConnection):
@@ -55,3 +55,33 @@ class OperatorKG:
             int: Number of records inserted
         """
         return self.db_conn.insert_batch(chunk_insert_sql, chunks, DatabaseOperator.KG)
+    
+    
+    def export_documents(self) -> List[Dict[str, Any]]:
+        """
+        Export all documents from the documents table.
+        
+        Returns:
+            List[Dict[str, Any]]: List of document records
+        """
+        return self.db_conn.read_all("documents", DatabaseOperator.KG)
+    
+    
+    def export_document_chunks(self) -> List[Dict[str, Any]]:
+        """
+        Export all document chunks from the document_chunks table.
+        
+        Returns:
+            List[Dict[str, Any]]: List of document chunk records
+        """
+        return self.db_conn.read_all("document_chunks", DatabaseOperator.KG)
+    
+    
+    def export_graph_vdb_entity(self) -> List[Dict[str, Any]]:
+        """
+        Export all graph VDB entities from the graph_vdb_entity table.
+        
+        Returns:
+            List[Dict[str, Any]]: List of graph VDB entity records
+        """
+        return self.db_conn.read_all("graph_vdb_entity", DatabaseOperator.KG)

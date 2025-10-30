@@ -38,15 +38,15 @@ def post(workspace_id: str, data: dict, batch_size: int = 100, base_url: str = "
         response = requests.post(url, json=payload, headers=headers)
         if response.status_code == 200:
             result : dict = response.json()
-            logger.info(f"✅ Batch import successful: {result.get('message', 'Import completed')}. "
+            logger.info(f"Batch import successful: {result.get('message', 'Import completed')}. "
                        f"Imported {result.get('imported_entities', 0)} entities and "
                        f"{result.get('imported_relations', 0)} relations.")
             return True
         else:
-            logger.error(f"❌ Batch import failed with status code {response.status_code}: {response.text}")
+            logger.error(f"Batch import failed with status code {response.status_code}: {response.text}")
             return False
     except requests.exceptions.RequestException as e:
-        logger.error(f"⚠️  Network error during batch import: {e}")
+        logger.error(f"Network error during batch import: {e}")
         return False
 
 def login(usr, pwd, base_url="http://localhost:8080"):
@@ -64,10 +64,10 @@ def login(usr, pwd, base_url="http://localhost:8080"):
             jwt_token = result['token']
             return jwt_token
         else:
-            print(f"❌ 登录失败，状态码: {response.status_code}")
+            print(f"登录失败，状态码: {response.status_code}")
             print(f"错误信息: {response.text}")
             return None
             
     except requests.exceptions.RequestException as e:
-        print(f"⚠️ 网络请求出错: {e}")
+        print(f"网络请求出错: {e}")
         return None

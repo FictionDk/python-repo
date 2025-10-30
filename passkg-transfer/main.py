@@ -1,7 +1,7 @@
 from database import DatabaseConnection
 from operator_lg import OperatorLG
 from operator_kg import OperatorKG
-from utils import map_lightrag_to_documents, map_lightrag_chunks_to_document_chunks, schema_mapper, save_graph_to_csv, save_id_mapping_to_csv, read_graph_from_csv
+from utils import map_lightrag_to_documents, map_lightrag_chunks_to_document_chunks, schema_mapper, save_graph_to_csv, save_id_mapping_to_csv, read_graph_from_csv, save_to_csv
 from neo_exporter import export_neo4j_data
 from nebula_export import export_nebula_data
 from nebula_import import grahp_import
@@ -104,10 +104,10 @@ def _export_graph_data():
     logger.info("Saving data to CSV files...")
     save_graph_to_csv(mapped_data)
 
-def _import_graph_data():
+def _import_graph_data(workspace_id):
     data = read_graph_from_csv()
     # Use the new post method to send data to the remote API
-    success = post(workspace_id='default', data=data)
+    success = post(workspace_id, data=data)
     if success:
         logger.info("Graph data successfully pushed to remote API.")
     else:
@@ -117,12 +117,9 @@ def _import_graph_data():
 # 图数据迁移
 def migrate_graph_data():
     #_export_graph_data()
-
-    data = export_nebula_data('5vm9t8')
-    save_graph_to_csv(data)
-
-
-    #_import_graph_data()
+    #data = export_nebula_data('5vm9t8')
+    #save_graph_to_csv(data)
+    _import_graph_data('5vm9t8')
     logger.info("Graph data migration completed successfully!")
 
 # 读取映射关系，写入csv
@@ -133,12 +130,64 @@ def export_mapping():
     save_id_mapping_to_csv(mapping, 'chunk_to_full_doc_mapping.csv')
     logger.info(f"Exported {len(mapping)} chunk to full document mappings to CSV")
 
+def export_to_csv():
+    """
+    Export data from documents, document_chunks, and graph_vdb_entity tables to CSV files.
+    """
+    db_conn = None
+    try:
+        db_conn = DatabaseConnection()
+        kg_opt = OperatorKG(db_conn)
+        
+        # Export documents table
+        logger.info("Exporting documents table...")
+        documents = kg_opt.export_documents()
+        if documents:
+            # Get headers from the first document's keys
+            headers = list(documents[0].keys())
+            save_to_csv(documents, headers, 'documents.csv')
+            logger.info(f"Exported {len(documents)} documents to documents.csv")
+        else:
+            logger.info("No documents found to export")
+        
+        # Export document_chunks table
+        logger.info("Exporting document_chunks table...")
+        chunks = kg_opt.export_document_chunks()
+        if chunks:
+            # Get headers from the first chunk's keys
+            headers = list(chunks[0].keys())
+            save_to_csv(chunks, headers, 'document_chunks.csv')
+            logger.info(f"Exported {len(chunks)} document chunks to document_chunks.csv")
+        else:
+            logger.info("No document chunks found to export")
+        
+        # Export graph_vdb_entity table
+        logger.info("Exporting graph_vdb_entity table...")
+        entities = kg_opt.export_graph_vdb_entity()
+        if entities:
+            # Get headers from the first entity's keys
+            headers = list(entities[0].keys())
+            save_to_csv(entities, headers, 'graph_vdb_entity.csv')
+            logger.info(f"Exported {len(entities)} graph VDB entities to graph_vdb_entity.csv")
+        else:
+            logger.info("No graph VDB entities found to export")
+            
+    except Exception as e:
+        logger.error(f"Error during export to CSV: {str(e)}")
+        raise
+    finally:
+        if db_conn:
+            db_conn.close_all_connections()
+            logger.info("Closed all database connections")
+
+
 def main():
     # Execute the regular data transfer
     # transfer()
     # fill_doc_name()
     # export_mapping()
     migrate_graph_data()
+    #export_to_csv()
 
 if __name__ == "__main__":
     main()

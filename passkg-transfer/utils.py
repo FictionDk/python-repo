@@ -276,3 +276,22 @@ def read_id_mapping_from_csv(filepath: str) -> Dict[str, str]:
         print(f"Error reading mapping file {filepath}: {str(e)}")
     
     return mapping
+
+
+def save_to_csv(data: List[Dict[str, Any]], headers: List[str], filepath: str) -> None:
+    """
+    Save data to a CSV file with specified headers.
+    
+    Args:
+        data (List[Dict[str, Any]]): List of dictionaries containing the data to save
+        headers (List[str]): List of column headers for the CSV file
+        filepath (str): Path to the output CSV file
+    """
+    try:
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(data)
+        print(f"Successfully saved {len(data)} records to {filepath}")
+    except Exception as e:
+        print(f"Error saving data to {filepath}: {str(e)}")

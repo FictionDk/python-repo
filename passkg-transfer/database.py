@@ -86,9 +86,14 @@ class DatabaseConnection:
 
     def read(self, sql: str, db_opt: DatabaseOperator) -> list[tuple[Any, ...]]:
         """
-        Read all records from lightrag_doc_full table.
+        Read all records from a table using the provided SQL query.
+        
+        Args:
+            sql (str): The SQL query to execute
+            db_opt (DatabaseOperator): Which database to read from (LG or KG)
+            
         Returns:
-            List[Dict[str, Any]]: List of document records
+            list[tuple[Any, ...]]: List of records as tuples
         """
         conn = None
         try:
@@ -104,6 +109,38 @@ class DatabaseConnection:
             if conn:
                 conn.rollback()
             raise Exception(f"Error exec(read): {sql}: {str(e)}")
+        finally:
+            if conn:
+                self.pool_map[db_opt].putconn(conn)
+                
+    def read_all(self, table_name: str, db_opt: DatabaseOperator) -> List[Dict[str, Any]]:
+        """
+        Read all records from a specified table.
+        
+        Args:
+            table_name (str): Name of the table to read from
+            db_opt (DatabaseOperator): Which database to read from (LG or KG)
+            
+        Returns:
+            List[Dict[str, Any]]: List of records as dictionaries
+        """
+        conn = None
+        try:
+            conn : psycopg2.extensions.connection = self.pool_map[db_opt].getconn()
+            if not conn:
+                raise Exception("Failed to get database connection")
+
+            with conn.cursor() as cursor:
+                cursor.execute(f"SELECT * FROM {table_name}")
+                # Get column names from cursor description
+                columns = [desc[0] for desc in cursor.description]
+                # Convert rows to dictionaries
+                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise Exception(f"Error reading all from {table_name}: {str(e)}")
         finally:
             if conn:
                 self.pool_map[db_opt].putconn(conn)
