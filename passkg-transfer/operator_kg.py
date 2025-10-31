@@ -55,8 +55,42 @@ class OperatorKG:
             int: Number of records inserted
         """
         return self.db_conn.insert_batch(chunk_insert_sql, chunks, DatabaseOperator.KG)
-    
-    
+
+    def export_table(self, table_name: str) -> List[Dict[str, Any]]:
+        """
+        Export all data from the tabel.
+        
+        Args:
+            tabel_name (str): Name of the table to export
+            
+        Returns:
+            List[Dict[str, Any]]: List of document records
+            
+        Raises:
+            ValueError: If the table name is not in the allowed list
+        """
+        allowed_tables = {
+            "chat_logs",
+            "documents",
+            "document_answers",
+            "document_chunks",
+            "document_domain_trees",
+            "document_histories",
+            "document_questions",
+            "graph_vdb_entity",
+            "model_configs",
+            "projects",
+            "prompts",
+            "workspaces",
+            "workspace_members",
+            "workspace_task_models"
+        }
+        if table_name not in allowed_tables:
+            print(f"Table '{table_name}' is not in the allowed list for export. ")
+            print(f"Allowed tables: {sorted(allowed_tables)}")
+            return []
+        return self.db_conn.read_all(table_name, DatabaseOperator.KG)
+
     def export_documents(self) -> List[Dict[str, Any]]:
         """
         Export all documents from the documents table.

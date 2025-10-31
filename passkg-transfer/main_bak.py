@@ -5,7 +5,7 @@ from utils import map_lightrag_to_documents, map_lightrag_chunks_to_document_chu
 from neo_exporter import export_neo4j_data
 from nebula_export import export_nebula_data
 from nebula_import import grahp_import
-from kg_import import post
+from import_data import post
 import logging
 import sys
 import pandas as pd

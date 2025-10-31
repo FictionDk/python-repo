@@ -80,6 +80,4 @@ lightrag_doc_chunks->document_chunks
 
 # pyinstaller打包
 
-pyinstaller -F main.py utils.py kg_import.py -n kgtransfer
-
-pyinstaller -F main.py utils.py operator_kg.py database.py -n pgtansfer
+pyinstaller -F main.py import_data.py utils.py operator_kg.py database.py -n kgimport

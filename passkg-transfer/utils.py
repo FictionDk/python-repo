@@ -317,3 +317,30 @@ def save_to_csv(data: List[Dict[str, Any]], headers: List[str], filepath: str) -
         print(f"Successfully saved {len(data)} records to {filepath}")
     except Exception as e:
         print(f"Error saving data to {filepath}: {str(e)}")
+
+def read_from_csv(filepath: str) -> tuple[List[Dict[str, Any]], List[str]]:
+    """
+    Read data from a CSV file.
+    
+    Args:
+        filepath (str): Path to the input CSV file
+        
+    Returns:
+        tuple: A tuple containing (data, headers) where data is a list of dictionaries
+               and headers is a list of column names
+    """
+    data = []
+    headers = []
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            headers = reader.fieldnames or []
+            data = [_strip_quotes_from_dict(row) for row in reader]
+        print(f"Successfully read {len(data)} records from {filepath}")
+    except FileNotFoundError:
+        print(f"File {filepath} not found.")
+    except Exception as e:
+        print(f"Error reading data from {filepath}: {str(e)}")
+    
+    return data, headers
