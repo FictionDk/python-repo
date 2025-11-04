@@ -3,7 +3,7 @@ from utils import save_graph_to_csv, save_to_csv
 from database import DatabaseConnection
 from operator_kg import OperatorKG
 
-from neo_exporter import export_neo4j_data
+from neo_operator import export_neo4j_data
 
 import logging
 import sys
