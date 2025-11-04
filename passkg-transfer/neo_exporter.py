@@ -10,9 +10,9 @@ load_dotenv()
 # Configure logging
 logger = logging.getLogger(__name__)
 
-class Neo4jExporter:
+class Neo4jOperator:
     """
-    Handles exporting data from Neo4j graph database.
+    Handles exporting and importing data from Neo4j graph database.
     """
     
     def __init__(self):
@@ -191,7 +191,7 @@ class Neo4jExporter:
             workspace (str, optional): The workspace to filter by. Defaults to "neo4j".
             
         Returns:
-            Dict[str, List[Dict[str, Any]]]: Dictionary with 'nodes' and 'relationships' keys
+            Dict[str, List[Dict[str, Any]]]: Dictionary with 'entities' and 'relations' keys
         """
         try:
             with self.driver.session() as session:
@@ -214,7 +214,7 @@ class Neo4jExporter:
                     OPTIONAL MATCH (n)<-[r2]-(m2)
                     WITH n, out_degree, count(r2) as in_degree
                     RETURN 
-                        id(n) as id,
+                        elementId(n) as id,
                         labels(n) as labels,
                         properties(n) as properties,
                         out_degree,
@@ -239,10 +239,10 @@ class Neo4jExporter:
                     MATCH (n)-[r]->(m)
                     {where_clause.replace('n.', '') if where_clause else ''}
                     RETURN
-                        id(r) as id,
+                        elementId(r) as id,
                         type(r) as type,
-                        id(startNode(r)) as start_id,
-                        id(endNode(r)) as end_id,
+                        elementId(startNode(r)) as start_id,
+                        elementId(endNode(r)) as end_id,
                         properties(r) as properties,
                         labels(startNode(r)) as start_labels,
                         labels(endNode(r)) as end_labels
@@ -282,7 +282,7 @@ def export_neo4j_data(workspace: str = None) -> Dict[str, List[Dict[str, Any]]]:
     Returns:
         Dict[str, List[Dict[str, Any]]]: Dictionary with 'nodes' and 'relationships' keys
     """
-    exporter = Neo4jExporter()
+    exporter = Neo4jOperator()
     try:
         return exporter.export_graph(workspace)
     finally:
@@ -292,7 +292,7 @@ def print_neo4j_schema():
     """
     Convenience function to print the Neo4j graph schema.
     """
-    exporter = Neo4jExporter()
+    exporter = Neo4jOperator()
     try:
         exporter.show_space()
         exporter.print_schema()
