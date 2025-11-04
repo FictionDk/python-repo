@@ -3,6 +3,8 @@ from utils import save_graph_to_csv, save_to_csv
 from database import DatabaseConnection
 from operator_kg import OperatorKG
 
+from neo_exporter import export_neo4j_data
+
 import logging
 import sys
 
@@ -37,7 +39,14 @@ def export_to_csv(tables: list[str]):
             db_conn.close_all_connections()
             logger.info("Closed all database connections")
 
-if __name__ == "__main__":
+def export_kg():
     data = export_nebula_data('cowherd')
     save_graph_to_csv(data)
     export_to_csv(['documents','document_chunks','graph_vdb_entity'])
+
+def export_neo():
+    data = export_neo4j_data()
+    save_graph_to_csv(data,nodes_file="neo_node.csv", edges_file="neo_edge.csv")
+
+if __name__ == "__main__":
+    export_neo()

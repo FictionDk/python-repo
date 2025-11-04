@@ -2,7 +2,6 @@ from typing import List, Dict, Any
 from nebula3.gclient.net import ConnectionPool
 from nebula3.Config import Config
 from nebula3.data.ResultSet import ResultSet
-from nebula3.common.ttypes import Value
 import logging
 import os
 
@@ -146,10 +145,7 @@ def export_nebula_data(space: str) -> Dict[str, List[Dict[str, Any]]]:
     Convenience function to export data from Nebula Graph to CSV files.
     
     Args:
-        space (str): The Nebula space to export from
-        entities_file (str, optional): Path to output CSV file for entities. If None, returns data without writing to file.
-        relations_file (str, optional): Path to output CSV file for relations. If None, returns data without writing to file.
-        
+        space (str): The Nebula space to export from  
     Returns:
         Dict[str, List[Dict[str, Any]]]: Dictionary with 'entities' and 'relations' keys
     """

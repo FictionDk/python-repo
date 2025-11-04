@@ -101,7 +101,7 @@ def import_graph_data(workspace_id, base_url:str = "http://localhost:8080"):
 
 def import_chunk_pg_data():
     logger.info("Reading document_chunks.csv file...")
-    chunks = read_from_csv('document_chunks.csv')
+    chunks, _ = read_from_csv('document_chunks.csv')
     if not chunks:
         logger.warning("No chunks found in document_chunks.csv")
         return

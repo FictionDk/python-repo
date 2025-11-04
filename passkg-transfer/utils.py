@@ -136,14 +136,18 @@ def save_graph_to_csv(data: Dict[str, List[Dict[str, Any]]], nodes_file: str = '
     # Save entities (nodes) to CSV
     if 'entities' in data and data['entities']:
         with open(nodes_file, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=['id', 'name', 'type', 'description', 'ref', 'created_at'])
+            # Use fieldnames from the first entity's keys, fallback to default if empty
+            fieldnames = list(data['entities'][0].keys()) if data['entities'] else ['id', 'name', 'type', 'description', 'ref', 'created_at']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data['entities'])
     
     # Save relations (edges) to CSV
     if 'relations' in data and data['relations']:
         with open(edges_file, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=['source_id', 'target_id', 'keywords', 'description', 'weight', 'ref'])
+            # Use fieldnames from the first relation's keys, fallback to default if empty
+            fieldnames = list(data['relations'][0].keys()) if data['relations'] else ['source_id', 'target_id', 'keywords', 'description', 'weight', 'ref']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data['relations'])
 

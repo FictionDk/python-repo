@@ -264,8 +264,8 @@ class Neo4jExporter:
                     relationships.append(rel)
                 
                 return {
-                    'nodes': nodes,
-                    'relationships': relationships
+                    'entities': nodes,
+                    'relations': relationships
                 }
                 
         except Exception as e:
