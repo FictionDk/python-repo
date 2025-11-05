@@ -3,6 +3,8 @@ from typing import Dict, List, Any
 import logging
 import os
 from dotenv import load_dotenv
+from tqdm import tqdm
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -271,6 +273,91 @@ class Neo4jOperator:
         except Exception as e:
             logger.error(f"Error exporting graph: {str(e)}")
             raise
+
+    def import_graph(self, workspace: str = "neo4j", data: Dict[str, List[Dict[str, Any]]] = None) -> bool:
+        """
+        Import nodes and relationships into the specified workspace.
+        
+        Args:
+            workspace (str, optional): The workspace to import into. Defaults to "neo4j".
+            data (Dict[str, List[Dict[str, Any]]], optional): Dictionary with 'entities' and 'relations' keys.
+                If None, imports an empty graph.
+                
+        Returns:
+            bool: True if import successful, False otherwise
+        """
+        if data is None:
+            logger.info(f"Empty importing")
+            return False
+            
+        try:
+            with self.driver.session() as session:
+                # Import entities (nodes)
+                entities = data.get('entities', [])
+                if entities:
+                    # Show progress only if there are entities to import
+                    for entity in tqdm(entities, desc="Importing entities", file=sys.stdout, unit="node"):
+                        # Parse stringified properties and labels if they are strings
+                        properties = entity['properties']
+                        if isinstance(properties, str):
+                            properties = eval(properties)
+                    
+                        labels = entity['labels']
+                        if isinstance(labels, str):
+                            labels = eval(labels)
+                    
+                        # Add workspace and original_id to properties
+                        properties['workspace'] = workspace
+                        properties['original_id'] = entity['id']
+                    
+                        # Create node with properties including original_id, then add labels
+                        # This avoids the syntax error with multiple labels and parameters
+                        query = "CREATE (n $properties)"
+                        if labels:
+                            # Add all labels using SET
+                            label_clauses = " ".join([f"SET n:`{label}`" for label in labels])
+                            query += f" {label_clauses}"
+                        query += " RETURN elementId(n)"
+                    
+                        session.run(query, properties=properties)
+                
+                # Import relations (relationships)
+                relations = data.get('relations', [])
+                if relations:
+                    # Show progress only if there are relations to import
+                    for rel in tqdm(relations, desc="Importing relations", file=sys.stdout, unit="rel"):
+                        # Parse stringified properties if it is a string
+                        properties = rel['properties']
+                        if isinstance(properties, str):
+                            properties = eval(properties)
+                    
+                        # Add workspace to properties
+                        properties['workspace'] = workspace
+                
+                        # Create relationship using MERGE to avoid APOC dependency
+                        query = """
+                        MATCH (a), (b)
+                        WHERE a.original_id = $start_id AND b.original_id = $end_id
+                        MERGE (a)-[r:`%s`]->(b)
+                        ON CREATE SET r += $properties
+                        ON MATCH SET r += $properties
+                        RETURN elementId(r)
+                        """ % rel['type']
+                        session.run(query, 
+                                  start_id=rel['start_id'], 
+                                  end_id=rel['end_id'], 
+                                  properties=properties)
+                
+                logger.info(f"Successfully imported {len(entities)} entities and {len(relations)} relations")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error importing graph: {str(e)}")
+            return False
+
+def import_neo4j_data(workspace: str = None, data : Dict[str, List[Dict[str, Any]]] = None):
+    exporter = Neo4jOperator()
+    exporter.import_graph(workspace, data)
 
 def export_neo4j_data(workspace: str = None) -> Dict[str, List[Dict[str, Any]]]:
     """
