@@ -1,12 +1,20 @@
 import requests
 import json
 from datetime import datetime
+import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
+LLM_TEMPERATURE = 0.7
+LLM_TOP_P = 1
+LLM_STREAM = True
 
 def interactive_chat(
     workspace_id: str,
     base_url: str = "http://localhost:8080",
-    jwt: str = None
+    jwt: str = None,
+    is_llm: bool = False
 ):
     """
     启动一个交互式聊天会话，持续读取用户输入并发送消息到指定 workspace，
@@ -41,7 +49,7 @@ def interactive_chat(
             messages.append({"role": "user", "content": user_input, "workspaceId": workspace_id, "createdAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
             # 调用 chat_stream 发送完整的消息历史
-            assistant_response = chat_stream(workspace_id=workspace_id, messages=messages, base_url=base_url, jwt=jwt)
+            assistant_response = chat_stream(workspace_id=workspace_id, messages=messages, base_url=base_url, jwt=jwt, is_llm=is_llm)
             
             # 将助手的回复添加到历史记录
             if assistant_response:
@@ -149,7 +157,8 @@ def chat_stream(
     workspace_id: str,
     messages: list,
     base_url: str = "http://localhost:8080",
-    jwt: str = None
+    jwt: str = None,
+    is_llm: bool = False
 ):
     """
     向指定的 workspace 发送消息列表，并通过 text/event-stream 协议接收流式响应。
@@ -163,23 +172,31 @@ def chat_stream(
     返回:
         str: 返回模型的完整响应内容，用于更新本地历史记录。
     """
-    url = f"{base_url}/chat/{workspace_id}"
+    url = base_url
     if not jwt:
         print("❌ 错误：jwt 认证令牌为必传参数")
         return ""
-    
+    if is_llm:
+        data = {
+            "messages": messages,
+            "model": os.getenv("LLM_MODEL"),
+            "temperature": LLM_TEMPERATURE,
+            "top_p": LLM_TOP_P,
+            "stream": LLM_STREAM,
+            "stop": None,
+        }
+    else:
+        url = f"{base_url}/chat/{workspace_id}"
+        data = {
+            "messages": messages
+        }
     headers = {
         "Authorization": f"Bearer {jwt}",
         "Content-Type": "application/json"
     }
-    data = {
-        "messages": messages
-    }
-    
     try:
         # 使用 stream=True 来处理流式响应
-        response = requests.post(url, headers=headers, json=data, stream=True)
-        
+        response = requests.post(url, headers=headers, json=data, stream=LLM_STREAM)
         # 检查响应状态码
         if response.status_code != 200:
             print(f"❌ 请求失败，状态码: {response.status_code}")
@@ -207,13 +224,17 @@ def chat_stream(
                     else:
                         # 处理数据内容
                         r_json = json.loads(data_content)
-                        is_end = r_json["isEnd"]
-                        if is_end:
-                            print(f"{r_json["message"]}{r_json["ref"]}")
+                        message_data = ""
+                        if is_llm:
+                            message_data = r_json["choices"][0]["delta"]["content"]
                         else:
-                            message_data = r_json['message']
-                            print(f"{message_data}", end="")
-                            full_response += message_data
+                            is_end = r_json["isEnd"]
+                            if is_end:
+                                print(f"{r_json['message']}{r_json['ref']}")
+                            else:
+                                message_data = r_json['message']
+                        print(f"{message_data}", end="")
+                        full_response += message_data
 
     except requests.exceptions.RequestException as e:
         print(f"⚠️ 网络请求出错: {e}")
@@ -223,3 +244,8 @@ def chat_stream(
         return ""
     
     return full_response
+
+#interactive_chat(workspace_id="", jwt=os.getenv('LLM_API_KEY'), base_url=os.getenv("LLM_API_URL"), is_llm=True)
+
+jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbGFzZXMiOiLnrqHnkIblkZgiLCJleHAiOjE3NjE5MDM2MDUsImlhdCI6MTc2MTg5NjQwNSwicm9sZSI6IuWQjuWPsOeuoeeQhiIsInVzZXJuYW1lIjoiYWRtaW4ifQ.E0hJSqXl7MFX3hhkSuBGbTTCwkyS33mvRB4KsiPpfhw'
+interactive_chat(workspace_id="cowherd", jwt=jwt, base_url='http://192.168.98.11:8080')

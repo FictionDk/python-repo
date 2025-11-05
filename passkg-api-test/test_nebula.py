@@ -86,7 +86,7 @@ q_e_count = 'MATCH (v) RETURN COUNT(v) AS vertex_count;'
 
 q_r_count = 'MATCH ()-[e]->() RETURN COUNT(e) AS edge_count;'
 
-q_3 = 'FETCH PROP ON entity 8732638000965776320 YIELD properties(vertex);'
+q_3 = 'FETCH PROP ON entity -6150443974223083657 YIELD properties(vertex);'
 
 drop_ngql = 'DROP SPACE `cowherd`'
 
@@ -229,5 +229,5 @@ create_workspace = 'CREATE SPACE IF NOT EXISTS `cowherd` (vid_type=INT64, partit
 # 2kbebs
 if __name__ == "__main__":
     #test_find_duplicate_names('cowherd')
-    #test_query('cowherd', [drop_ngql])
-    exec(drop_ngql)
+    test_query('cowherd', [q_3])
+    #exec(drop_ngql)

@@ -100,7 +100,8 @@ def batch_process_docs(jwt):
 
 if __name__ == "__main__":
     jwt = auth.login("admin","stpass",base_url=remote_host)
-    batch_process_docs(jwt)
+    print(jwt)
+    #batch_process_docs(jwt)
     # create_workspace(jwt)
     # r = file.upload_image_to_workspace("serwos","xiongpian.jpg",jwt=jwt)
     # print(r)
