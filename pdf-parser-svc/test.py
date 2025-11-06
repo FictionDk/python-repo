@@ -2,6 +2,10 @@ import requests
 import os
 import re
 import llm
+import deepseek_ocr as ocr
+
+from PIL import Image
+import io
 
 # 定义服务地址和端口
 url = 'http://localhost:8188/convert'
@@ -88,4 +92,28 @@ def test_llm():
     r = process_local_image('20251013_1.png')
     print(r)
 
-test_post()
+def test_ocr_fetch(is_des=False):
+    """测试 fetch_markdown 方法，使用PIL读取并预览指定图片，然后转换为 Markdown"""
+    image_path = "微信截图_20251106145127.png"
+    if is_des:
+        image_path = '微信截图_20251106151615.png'
+    if not os.path.exists(image_path):
+        print(f"错误：图片文件 {image_path} 不存在。")
+        return
+    
+    # 使用PIL打开并预览图片
+    with Image.open(image_path) as img:
+        img.show()  # 这会调用系统默认的图片查看器预览图片
+        
+        # 将PIL图像对象转换为字节流
+        byte_stream = io.BytesIO()
+        img.save(byte_stream, format='PNG')  # 保存为PNG格式到内存中的字节流
+        image_bytes = byte_stream.getvalue()  # 获取字节流内容
+
+    if is_des:
+        r = ocr.fetch_des(image_bytes)
+    else:
+        r = ocr.fetch_markdown(image_bytes)
+    print(f"result={r}")
+
+test_ocr_fetch(True)

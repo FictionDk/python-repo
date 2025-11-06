@@ -2,14 +2,15 @@ import requests
 import json
 import os
 import base64
+from deepseek_ocr import fetch_markdown
 from io import BytesIO
 from PIL import Image
 
 from dotenv import load_dotenv
 load_dotenv()
 
-API_PATH = 'http://192.168.120.246:31825/v1/chat/completions'
-API_KEY = os.getenv('API_KEY')
+API_PATH = f"{os.getenv('REASONMODAL_API_PATH')}/chat/completions"
+API_KEY = os.getenv('REASONMODAL_API_KEY')
 MODEL_NAME = 'Qwen/Qwen3-235B-A22B-Instruct-2507-FP8'
 if not API_KEY:
     raise ValueError("Missing required environment variable: API_KEY")
@@ -74,6 +75,18 @@ def md_format_from_image(images: list[Image.Image]) -> str:
     :param images: PIL图像对象列表
     :return: Markdown字符串
     """
+    OCR_PATH = os.getenv('DEEPSEEK_OCR_API_PATH')
+    if OCR_PATH:
+        fetch_markdown()
+        full_markdown = ""
+        for _, image in enumerate(images):
+            # 将PIL图像转换为Base64
+            buffered = BytesIO()
+            image.save(buffered, format="JPEG")
+            page_markdown = fetch_markdown(buffered.getvalue())
+            full_markdown += page_markdown + "\n"
+        return full_markdown
+
     # 从环境变量加载多模态API配置
     API_PATH = os.getenv('MULTIMODAL_API_PATH')
     MODEL_NAME = os.getenv('MULTIMODAL_MODEL_NAME')
