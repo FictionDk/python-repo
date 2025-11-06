@@ -77,7 +77,6 @@ def md_format_from_image(images: list[Image.Image]) -> str:
     """
     OCR_PATH = os.getenv('DEEPSEEK_OCR_API_PATH')
     if OCR_PATH:
-        fetch_markdown()
         full_markdown = ""
         for _, image in enumerate(images):
             # 将PIL图像转换为Base64

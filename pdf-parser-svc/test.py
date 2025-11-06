@@ -116,4 +116,4 @@ def test_ocr_fetch(is_des=False):
         r = ocr.fetch_markdown(image_bytes)
     print(f"result={r}")
 
-test_ocr_fetch(True)
+#test_ocr_fetch(True)
