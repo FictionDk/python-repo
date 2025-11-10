@@ -4,8 +4,8 @@ FROM python:3.11-slim
 # 设置工作目录
 WORKDIR /app
 
-ENV PIP_INDEX_URL https://pypi.tuna.tsinghua.edu.cn/simple/
-ENV PIP_TRUSTED_HOST pypi.tuna.tsinghua.edu.cn
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
+ENV PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 
 RUN \
     # 删除默认源
@@ -38,9 +38,6 @@ COPY . .
 
 # 暴露应用端口
 EXPOSE 8188
-
-# 定义环境变量文件（运行时需提供）
-ENV ENV_FILE_PATH .env
 
 # 运行应用
 CMD ["python", "main.py"]

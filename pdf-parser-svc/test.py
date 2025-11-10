@@ -35,9 +35,7 @@ def save_markdown_to_file(markdown_content):
     except Exception as e:
         print(f"保存文件时发生错误：{e}")
 
-def test_post():
-    # 指定要上传的本地PDF文件路径
-    pdf_file_path = 'req_t.pdf'
+def test_post(pdf_file_path = 'req_t.pdf'):
     # 检查文件是否存在
     if not os.path.exists(pdf_file_path):
         print(f"错误：文件 {pdf_file_path} 不存在。")
@@ -116,4 +114,55 @@ def test_ocr_fetch(is_des=False):
         r = ocr.fetch_markdown(image_bytes)
     print(f"result={r}")
 
+def test_llm_fetch():
+    """测试 llm.md_format 方法，使用模拟的排版元素数据生成 Markdown"""
+    # 构造模拟的排版元素数据
+    mock_elements = [
+        {
+            "type": "text",
+            "top": 100.0,
+            "text": "这是一个测试标题",
+            "font_size": 16,
+            "bold": True
+        },
+        {
+            "type": "text",
+            "top": 150.0,
+            "text": "这是一段普通的正文文本，用于测试。",
+            "font_size": 12,
+            "bold": False
+        },
+        {
+            "type": "table",
+            "top": 200.0,
+            "data": [
+                ["姓名", "年龄", "城市"],
+                ["张三", "25", "北京"],
+                ["李四", "30", "上海"]
+            ],
+            "cell": [
+                (50, 200, 150, 230), (150, 200, 250, 230), (250, 200, 350, 230),
+                (50, 230, 150, 260), (150, 230, 250, 260), (250, 230, 350, 260),
+                (50, 260, 150, 290), (150, 260, 250, 290), (250, 260, 350, 290)
+            ],
+            "bbox": (50, 200, 350, 290)
+        },
+        {
+            "type": "text",
+            "top": 300.0,
+            "text": "表格之后的另一段文本。",
+            "font_size": 12,
+            "bold": False
+        }
+    ]
+    
+    # 调用 llm.md_format 方法
+    result_markdown = llm.md_format(mock_elements)
+    
+    # 打印结果
+    print("生成的Markdown内容：\n")
+    print(result_markdown)
+
+test_llm_fetch()
 #test_ocr_fetch(True)
+#test_post("D:\\Doc\\download\\NPF.pdf")

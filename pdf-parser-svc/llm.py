@@ -11,7 +11,7 @@ load_dotenv()
 
 API_PATH = f"{os.getenv('REASONMODAL_API_PATH')}/chat/completions"
 API_KEY = os.getenv('REASONMODAL_API_KEY')
-MODEL_NAME = 'Qwen/Qwen3-235B-A22B-Instruct-2507-FP8'
+MODEL_NAME = os.getenv('REASONMODAL_NAME')
 if not API_KEY:
     raise ValueError("Missing required environment variable: API_KEY")
 
@@ -44,6 +44,23 @@ bbox: 边框坐标
 """
 '''
 
+image_format_prompt = '''
+你是一个专业的文档转换助手，负责将 PDF 的原始排版信息转换为结构清晰的 Markdown。
+我会提供以下信息：
+- 按从上到下的顺序排列的文本行，包含字体大小、是否加粗、内容
+- 提取的表格内容
+请根据这些信息：
+1. 推断标题层级（#、##、###）
+2. 识别正文、列表、代码块、引用等
+3. 将表格转换为 Markdown 表格,如果有合并单元格则使用 **HTML 表格代码**，并嵌入 Markdown 中
+4. 忽略页眉页脚、页码、重复标题
+5. 输出完整、可读性强的 Markdown
+注意：
+- 不要添加额外解释，只输出 Markdown
+- 保持原始语义不变
+- 合理使用列表、分隔线、强调等语法
+'''
+
 def fetch(prompt: str, content: str) -> str:
     headers = {
         'Content-Type': 'application/json',
@@ -64,7 +81,16 @@ def fetch(prompt: str, content: str) -> str:
         'temperature': 0,
         "stream": "false",
     })
-    return json.loads(resp.text)['choices'][0]['message']['content']
+    # 检查响应状态码
+    if resp.status_code != 200:
+        raise Exception(f"API request failed with status {resp.status_code}: {resp.text}, Path: {API_PATH}")
+    try:
+        resp_json = resp.json()
+        return resp_json['choices'][0]['message']['content']
+    except KeyError as e:
+        raise Exception(f"Unexpected response structure, raw value: {resp.text}: missing key {e}") from e
+    except json.JSONDecodeError as e:
+        raise Exception(f"Failed to parse response as JSON: {resp.text}") from e
 
 def md_format(elements: list) -> str:
     return fetch(md_format_prompt, json.dumps(elements))
@@ -125,23 +151,6 @@ def _process_streaming_response(resp) -> str:
         page_markdown = f"<!-- 无法处理图像，错误: {resp.status_code} {resp.text} -->"
     return page_markdown
 
-def _process_non_streaming_response(resp) -> str:
-    """
-    处理非流式API响应。
-    :param resp: requests.Response 对象
-    :return: 从响应中提取的Markdown字符串
-    """
-    page_markdown = ""
-    if resp.status_code == 200:
-        try:
-            data = resp.json()
-            page_markdown = data['choices'][0]['message']['content']
-        except (KeyError, json.JSONDecodeError) as e:
-            page_markdown = f"<!-- 解析API响应时出错: {e} -->"
-    else:
-        page_markdown = f"<!-- 无法处理图像，错误: {resp.status_code} {resp.text} -->"
-    return page_markdown
-
 def _md_format_from_image(images: list, path: str, key: str, name: str, is_stream: bool, process_response_func) -> str:
     """
     使用多模态API将图像列表转换为Markdown的通用方法。
@@ -187,20 +196,3 @@ def _md_format_from_image(images: list, path: str, key: str, name: str, is_strea
         full_markdown += page_markdown + "\n\n"
 
     return full_markdown.strip()
-
-image_format_prompt = '''
-你是一个专业的文档转换助手，负责将 PDF 的原始排版信息转换为结构清晰的 Markdown。
-我会提供以下信息：
-- 按从上到下的顺序排列的文本行，包含字体大小、是否加粗、内容
-- 提取的表格内容
-请根据这些信息：
-1. 推断标题层级（#、##、###）
-2. 识别正文、列表、代码块、引用等
-3. 将表格转换为 Markdown 表格,如果有合并单元格则使用 **HTML 表格代码**，并嵌入 Markdown 中
-4. 忽略页眉页脚、页码、重复标题
-5. 输出完整、可读性强的 Markdown
-注意：
-- 不要添加额外解释，只输出 Markdown
-- 保持原始语义不变
-- 合理使用列表、分隔线、强调等语法
-'''
