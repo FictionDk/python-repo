@@ -93,6 +93,9 @@ def fetch(prompt: str, content: str) -> str:
         raise Exception(f"Failed to parse response as JSON: {resp.text}") from e
 
 def md_format(elements: list) -> str:
+    """
+    将元素列表转换为Markdown
+    """
     return fetch(md_format_prompt, json.dumps(elements))
 
 def md_format_from_image(images: list[Image.Image]) -> str:

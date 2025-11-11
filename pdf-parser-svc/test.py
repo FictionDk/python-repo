@@ -3,13 +3,16 @@ import os
 import re
 import llm
 import deepseek_ocr as ocr
+import json
 
 from PIL import Image
 import io
 
 # 定义服务地址和端口
-url = 'http://localhost:8188/convert'
+# url = 'http://127.0.0.1:8188/convert'
+url = 'http://192.168.141.203:8188/convert'
 # url = 'http://192.168.120.246:30191/convert'
+test_file_path = 'D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf'
 
 def save_markdown_to_file(markdown_content):
     """将Markdown内容以标题作为文件名保存到本地"""
@@ -35,7 +38,7 @@ def save_markdown_to_file(markdown_content):
     except Exception as e:
         print(f"保存文件时发生错误：{e}")
 
-def test_post(pdf_file_path = 'req_t.pdf'):
+def test_post(pdf_file_path = 'req_t.pdf', direct_ocr = 'false'):
     # 检查文件是否存在
     if not os.path.exists(pdf_file_path):
         print(f"错误：文件 {pdf_file_path} 不存在。")
@@ -44,11 +47,11 @@ def test_post(pdf_file_path = 'req_t.pdf'):
         with open(pdf_file_path, 'rb') as pdf_file:
             # 构造文件上传的字典
             files = {'pdf': pdf_file}
-            
+            rel_url = f"{url}?direct_ocr={direct_ocr}"
+            print(f"url={rel_url}")
             try:
                 # 发送POST请求到Flask服务
-                response = requests.post(url, files=files)
-                
+                response = requests.post(rel_url, files=files)
                 # 检查响应状态码
                 if response.status_code == 200:
                     # 解析返回的JSON数据
@@ -67,8 +70,6 @@ def test_post(pdf_file_path = 'req_t.pdf'):
                     
             except requests.exceptions.RequestException as e:
                 print(f"请求过程中发生错误：{e}")
-
-
 
 def process_local_image(image_path: str) -> str:
     """
@@ -163,6 +164,60 @@ def test_llm_fetch():
     print("生成的Markdown内容：\n")
     print(result_markdown)
 
-test_llm_fetch()
+def test_convert_stream(pdf_file_path='req_t.pdf'):
+    """测试 /convert_stream 接口，验证SSE流式响应"""
+    # 检查文件是否存在
+    if not os.path.exists(pdf_file_path):
+        print(f"错误：文件 {pdf_file_path} 不存在。")
+        return
+    # 以二进制模式打开PDF文件
+    with open(pdf_file_path, 'rb') as pdf_file:
+        # 构造文件上传的字典
+        files = {'pdf': pdf_file}
+        try:
+            # 发送POST请求到Flask服务，启用流式响应
+            loc_url = str(url).replace('convert','convert_stream')
+            print(loc_url)
+            response = requests.post(loc_url, files=files, stream=True)
+            # 检查响应状态码
+            if response.status_code == 200:
+                print("开始接收流式响应...")
+                received_events = []
+                # 逐行处理SSE响应
+                for line in response.iter_lines():
+                    if line:  # 过滤空行
+                        line_str = line.decode('utf-8')
+                        print(f"接收到: {line_str}")
+                        if line_str.startswith('data:'):
+                            # 解析JSON数据
+                            try:
+                                data = json.loads(line_str[5:].strip())  # 去掉'data:'前缀
+                                received_events.append(data)
+
+                                # 简单验证进度
+                                if data.get('progress') == 10 and data.get('message') == '文件已接收并保存':
+                                    print("✓ 收到初始进度事件")
+                                elif data.get('progress') == 100 and data.get('message') == '转换完成':
+                                    print("✓ 收到完成进度事件")
+                                    # 提取并保存Markdown内容
+                                    markdown_content = data.get('markdown', '')
+                                    if markdown_content:
+                                        save_markdown_to_file(markdown_content)
+                                    break
+                            except json.JSONDecodeError as e:
+                                print(f"JSON解析错误: {e}")
+                                continue
+                print(f"共接收 {len(received_events)} 个事件")
+            else:
+                print(f"请求失败，状态码：{response.status_code}")
+                print("响应内容：", response.text)
+        except requests.exceptions.RequestException as e:
+            print(f"请求过程中发生错误：{e}")
+
+# 《血站技术操作规程（2019版）》.pdf
+#test_llm_fetch()
 #test_ocr_fetch(True)
-#test_post("D:\\Doc\\download\\NPF.pdf")
+test_post('D:\\Doc\\download\\NPF.pdf','true')
+#test_convert_stream('D:\\Doc\\download\\NPF.pdf')
+#test_convert_stream('D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf')
+#test_convert_stream()

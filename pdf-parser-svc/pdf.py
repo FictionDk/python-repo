@@ -30,7 +30,7 @@ def merge_text_and_tables(page):
     elements.sort(key=lambda x: x["top"], reverse=False)  # 从上到下
     return elements
 
-def extract_lines_with_position(page:Page):
+def extract_lines_with_position(page: Page):
     """提取每行文本及其垂直位置（top）"""
     lines = []
     current_para = []
@@ -44,6 +44,8 @@ def extract_lines_with_position(page:Page):
             # 如果当前字符的 top 与上一行差距较大，视为新段
             if abs(char["top"] - last_top) > tolerance:
                 text = "".join(c["text"] for c in current_para)
+                if text == "":
+                    continue
                 lines.append({
                     "type": "text",
                     "text": text.strip(),
@@ -53,6 +55,7 @@ def extract_lines_with_position(page:Page):
                 last_top = char["top"]
             else:
                 current_para.append(char)
+
     # 添加最后一段
     if current_para:
         text = "".join(c["text"] for c in current_para)
@@ -79,8 +82,13 @@ def extract_tables_with_position(page:Page):
         })
     return tables
 
-def tests():
-    obj_arr = get_elements('WST 795-2022.pdf')
-    print("========================================================================")
-    for obj in obj_arr:
-        print(obj)
+# def tests():
+#     obj_arr = get_elements('D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf')
+#     size = 0
+#     print("========================================================================")
+#     for obj in obj_arr:
+#         print(obj)
+#         size += len(obj)
+#         for o in obj:
+#             print(o)
+#     print(f"len={len(obj_arr)},size={size}")
