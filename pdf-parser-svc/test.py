@@ -214,10 +214,35 @@ def test_convert_stream(pdf_file_path='req_t.pdf'):
         except requests.exceptions.RequestException as e:
             print(f"请求过程中发生错误：{e}")
 
-# 《血站技术操作规程（2019版）》.pdf
+def process_md_file(file_path: str):
+    """
+    读取指定的 .md 文件，调用 __clean 方法处理内容，并覆盖原文件
+    :param file_path: .md 文件路径
+    """
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        print(f"错误：文件 {file_path} 不存在。")
+        return
+    
+    # 读取文件内容
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # 调用 __clean 方法处理内容
+    cleaned_content = ocr.__clean(content)
+    
+    # 将处理后的内容写回原文件
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(cleaned_content)
+    
+    print(f"文件 {file_path} 已成功处理并覆盖原内容。")
+
+# 《血站技术操作规程（2019版）》.pdf 单采血浆站技术操作规程(2022 年版).pdf
 #test_llm_fetch()
 #test_ocr_fetch(True)
-test_post('D:\\Doc\\download\\NPF.pdf','true')
+#test_post('D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf','true')
 #test_convert_stream('D:\\Doc\\download\\NPF.pdf')
 #test_convert_stream('D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf')
 #test_convert_stream()
+# 调用新功能处理 xxxx.md 文件
+process_md_file('单采血浆站技术操作规程（2022年版）.md')
