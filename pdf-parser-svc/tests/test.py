@@ -1,3 +1,7 @@
+
+import sys
+sys.path.append('..')
+
 import requests
 import os
 import re
@@ -240,9 +244,9 @@ def process_md_file(file_path: str):
 # 《血站技术操作规程（2019版）》.pdf 单采血浆站技术操作规程(2022 年版).pdf
 #test_llm_fetch()
 #test_ocr_fetch(True)
-#test_post('D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf','true')
+test_post('D:\\Doc\\2025年四季度\\山东省医疗机构样本外送检测管理规范.pdf','true')
 #test_convert_stream('D:\\Doc\\download\\NPF.pdf')
 #test_convert_stream('D:\\Doc\\download\\《血站技术操作规程（2019版）》.pdf')
 #test_convert_stream()
 # 调用新功能处理 xxxx.md 文件
-process_md_file('单采血浆站技术操作规程（2022年版）.md')
+#process_md_file('血站技术操作规程.md')

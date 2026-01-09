@@ -25,8 +25,16 @@ RUN \
         build-essential \
         libffi-dev \
         poppler-utils \
+        tzdata \
     && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    \
+    # 设置时区为 Asia/Shanghai
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
+# 设置时区环境变量
+ENV TZ=Asia/Shanghai
 
 # 复制 requirements.txt 并安装 Python 依赖
 # 为了效率，先复制并安装依赖，再复制代码

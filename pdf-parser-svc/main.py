@@ -70,15 +70,27 @@ def process_ocr(path_name: str) -> str:
 
 def process_llm(path_name: str) -> str:
     logging.info("start get elements by pdf")
-    elements = pdf.get_elements(path_name)
-    all_elements = [element for page_elements in elements for element in page_elements]
-    logging.info(f"get {len(all_elements)} from pdf")
+    pages = pdf.get_page_elements(path_name)
+    all_elements = [element for page_elements in pages for element in page_elements]
     text_content = " ".join([e["text"] for e in all_elements if e.get("type") == "text"])
     if len(text_content.strip()) < 10:
         return process_ocr(path_name)
-    else:
+    if len(pages) < 20:
         logging.info(f"start llm for elements")
         return llm.md_format(all_elements)
+    else:
+        logging.info(f"start batch llm for elements")
+        batch_size = 5
+        markdown_parts = []
+        # 按batch_size分批处理页面
+        for i in range(0, len(pages), batch_size):
+            batch_pages = pages[i:i + batch_size]
+            batch_elements = [element for page_elements in batch_pages for element in page_elements]
+            batch_markdown = llm.md_format(batch_elements)
+            markdown_parts.append(batch_markdown)
+            logging.info(f"{i}/{len(pages)} llm finished")
+        full_markdown = "\n\n".join(markdown_parts)
+        return full_markdown
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8188)

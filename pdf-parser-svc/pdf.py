@@ -3,7 +3,7 @@ from pdfplumber.page import Page
 from pdf2image import convert_from_path
 from PIL import Image
 
-def get_elements(pdf_path):
+def get_page_elements(pdf_path):
     eles = []
     with pdfplumber.open(pdf_path) as pdf:
         for _, page in enumerate(pdf.pages):
@@ -21,7 +21,7 @@ def extract_images_from_pdf(pdf_path, dpi=200) -> list[Image.Image]:
     images = convert_from_path(pdf_path, dpi=dpi)
     return images
 
-def merge_text_and_tables(page):
+def merge_text_and_tables(page : Page):
     lines = extract_lines_with_position(page)
     tables = extract_tables_with_position(page)
     # 合并所有元素

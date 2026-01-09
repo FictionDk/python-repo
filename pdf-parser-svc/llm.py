@@ -59,6 +59,7 @@ image_format_prompt = '''
 - 不要添加额外解释，只输出 Markdown
 - 保持原始语义不变
 - 合理使用列表、分隔线、强调等语法
+- 单元格内不需要使用<br>对文本进行换行切分
 '''
 
 def fetch(prompt: str, content: str) -> str:
@@ -107,11 +108,12 @@ def md_format_from_image(images: list[Image.Image]) -> str:
     OCR_PATH = os.getenv('DEEPSEEK_OCR_API_PATH')
     if OCR_PATH:
         full_markdown = ""
-        for _, image in enumerate(images):
+        for i, image in enumerate(images):
             # 将PIL图像转换为Base64
             buffered = BytesIO()
             image.save(buffered, format="JPEG")
             page_markdown = fetch_markdown(buffered.getvalue())
+            print(f"{i}/{len(images)} ocr finished")
             full_markdown += page_markdown + "\n"
         return full_markdown
 
