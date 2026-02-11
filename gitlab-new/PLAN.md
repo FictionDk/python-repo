@@ -73,6 +73,10 @@
 }
 ```
 
+### 4. Issue 存储结构
+1. Issue-Main表，主键为iid，如果存在就更新，不存在则插入
+2. Issue-Snapshot，主键为自增id，iid和shapshot_at联合唯一，字段为 status，使用graphql_request请求获取的main_status
+
 
 ## Commit管理 manage_commit.py
 

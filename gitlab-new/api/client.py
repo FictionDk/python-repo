@@ -241,9 +241,9 @@ class GitLabClient:
             'labels': list(issue.labels) if issue.labels else [],
             'assignees': [
                 {
-                    'id': a.id,
-                    'username': a.username,
-                    'name': a.name
+                    'id': a['id'],
+                    'username': a['username'],
+                    'name': a['name']
                 }
                 for a in issue.assignees
             ],
