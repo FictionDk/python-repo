@@ -5,8 +5,10 @@ GraphQL client for GitLab API
 import requests
 import json
 from typing import Optional, Dict, Any, List, Tuple
-from ..config import Config
+from config import Config
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class GraphQLClient:
     """Client for making GraphQL requests to GitLab"""
@@ -62,8 +64,6 @@ class GraphQLClient:
 
 def get_issue_children(
     issue_id: int, 
-    token: str, 
-    url: str = "https://gitlab.stpass.com/api/graphql",
     page_size: int = 50,
     end_cursor: str = ""
 ) -> Tuple[str, List[Dict[str, Any]]]:
@@ -72,8 +72,6 @@ def get_issue_children(
     
     Args:
         issue_id: The issue ID
-        token: The private token for authentication
-        url: The GraphQL API endpoint URL
         page_size: Number of results per page
         end_cursor: Pagination cursor
         
@@ -362,7 +360,7 @@ def get_issue_children(
     }
     '''
     
-    client = GraphQLClient(Config(url=url.replace('/api/graphql', ''), private_token=token))
+    client = GraphQLClient(Config())
     variables = {
         'id': f"gid://gitlab/WorkItem/{str(issue_id)}",
         "endCursor": end_cursor,

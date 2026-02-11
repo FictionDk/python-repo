@@ -5,7 +5,8 @@ REST API client wrapper for GitLab
 from typing import Optional, List, Dict, Any
 from gitlab import Gitlab as GitLabSDK
 from config import Config
-
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class GitLabClient:
     """Wrapper around python-gitlab SDK"""

@@ -50,6 +50,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS issue_main (
                 project_id INTEGER NOT NULL,
                 iid INTEGER NOT NULL,
+                parent_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT,
                 state TEXT,
@@ -71,8 +72,9 @@ class Database:
                 project_id INTEGER NOT NULL,
                 iid INTEGER NOT NULL,
                 status TEXT,
+                create_at TEXT NOT NULL,
                 snapshot_at TEXT NOT NULL,
-                UNIQUE(project_id, iid, snapshot_at)
+                UNIQUE(project_id, iid, status)
             )
         ''')
         self.connect().commit()
@@ -147,12 +149,13 @@ class Database:
         """
         self.connect().execute('''
             INSERT OR REPLACE INTO issue_main (
-                project_id, iid, title, description, state, labels, 
+                project_id, iid, parent_id, title, description, state, labels, 
                 assignees, created_at, updated_at, issue_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             project_id,
             issue_data.get('iid'),
+            issue_data.get('parent_id', issue_data.get('iid')),  # Default to self if no parent
             issue_data.get('title'),
             issue_data.get('description'),
             issue_data.get('state'),
@@ -176,12 +179,13 @@ class Database:
         for issue in issues:
             conn.execute('''
                 INSERT OR REPLACE INTO issue_main (
-                    project_id, iid, title, description, state, labels, 
+                    project_id, iid, parent_id, title, description, state, labels, 
                     assignees, created_at, updated_at, issue_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 project_id,
                 issue.get('iid'),
+                issue.get('parent_id', issue.get('iid')),
                 issue.get('title'),
                 issue.get('description'),
                 issue.get('state'),
@@ -237,6 +241,7 @@ class Database:
         return {
             'project_id': row['project_id'],
             'iid': row['iid'],
+            'parent_id': row['parent_id'],
             'title': row['title'],
             'description': row['description'],
             'state': row['state'],
@@ -266,11 +271,12 @@ class Database:
             snapshot_date: Snapshot date (YYYY-MM-DD)
         """
         try:
+            create_at = datetime.now().isoformat()
             self.connect().execute('''
                 INSERT OR REPLACE INTO issue_snapshot (
-                    project_id, iid, status, snapshot_at
-                ) VALUES (?, ?, ?, ?)
-            ''', (project_id, iid, status, snapshot_date))
+                    project_id, iid, status, create_at, snapshot_at
+                ) VALUES (?, ?, ?, ?, ?)
+            ''', (project_id, iid, status, create_at, snapshot_date))
             self.connect().commit()
         except sqlite3.IntegrityError:
             # Ignore duplicate entries
@@ -290,14 +296,16 @@ class Database:
         conn = self.connect()
         for snapshot in snapshots:
             try:
+                create_at = datetime.now().isoformat()
                 conn.execute('''
                     INSERT OR REPLACE INTO issue_snapshot (
-                        project_id, iid, status, snapshot_at
-                    ) VALUES (?, ?, ?, ?)
+                        project_id, iid, status, create_at, snapshot_at
+                    ) VALUES (?, ?, ?, ?, ?)
                 ''', (
                     snapshot.get('project_id'),
                     snapshot.get('iid'),
                     snapshot.get('status'),
+                    create_at,
                     snapshot.get('snapshot_at')
                 ))
             except sqlite3.IntegrityError:
@@ -371,8 +379,96 @@ class Database:
             'project_id': row['project_id'],
             'iid': row['iid'],
             'status': row['status'],
+            'create_at': row['create_at'],
             'snapshot_at': row['snapshot_at']
         }
+    
+    def insert_or_update_snapshot_with_status_change(
+        self,
+        project_id: int,
+        iid: int,
+        status: str,
+        snapshot_at: str
+    ) -> Dict[str, int]:
+        """
+        Insert or update snapshot with status change detection.
+        Only inserts to issue_snapshot if status has changed.
+        Updates snapshot_at for existing status entries.
+        
+        Args:
+            project_id: Project ID
+            iid: Issue IID
+            status: Main status from GraphQL API
+            snapshot_at: Snapshot date (YYYY-MM-DD)
+            
+        Returns:
+            Dictionary with statistics:
+            - inserted: Number of new snapshots inserted (status changed)
+            - updated: Number of existing snapshots updated (status unchanged)
+        """
+        create_at = datetime.now().isoformat()
+        inserted = 0
+        updated = 0
+        
+        # Check if this status already exists for this issue
+        cursor = self.connect().execute(
+            'SELECT id, snapshot_at FROM issue_snapshot WHERE project_id = ? AND iid = ? AND status = ?',
+            (project_id, iid, status)
+        )
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Status exists, just update snapshot_at
+            self.connect().execute(
+                'UPDATE issue_snapshot SET snapshot_at = ? WHERE id = ?',
+                (snapshot_at, existing['id'])
+            )
+            updated = 1
+        else:
+            # New status, insert it
+            try:
+                self.connect().execute(
+                    'INSERT INTO issue_snapshot (project_id, iid, status, create_at, snapshot_at) VALUES (?, ?, ?, ?, ?)',
+                    (project_id, iid, status, create_at, snapshot_at)
+                )
+                inserted = 1
+            except sqlite3.IntegrityError:
+                # Ignore if somehow duplicate was inserted
+                pass
+        
+        self.connect().commit()
+        return {'inserted': inserted, 'updated': updated}
+    
+    def batch_insert_or_update_snapshots_with_status_change(
+        self,
+        snapshots: List[Dict[str, Any]]
+    ) -> Dict[str, int]:
+        """
+        Batch insert or update snapshots with status change detection.
+        
+        Args:
+            snapshots: List of snapshot dictionaries with keys:
+                      project_id, iid, status, snapshot_at
+            
+        Returns:
+            Dictionary with statistics:
+            - inserted: Number of new snapshots inserted (status changed)
+            - updated: Number of existing snapshots updated (status unchanged)
+        """
+        total_inserted = 0
+        total_updated = 0
+        
+        for snapshot in snapshots:
+            result = self.insert_or_update_snapshot_with_status_change(
+                snapshot.get('project_id'),
+                snapshot.get('iid'),
+                snapshot.get('status'),
+                snapshot.get('snapshot_at')
+            )
+            total_inserted += result['inserted']
+            total_updated += result['updated']
+        
+        return {'inserted': total_inserted, 'updated': total_updated}
     
     def get_issues_summary_from_snapshots(
         self, 

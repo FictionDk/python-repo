@@ -39,84 +39,110 @@ class IssueManager:
     def clone_snapshot(self, project_id: int) -> Dict[str, Any]:
         """
         获取当前时间点项目 Issue 的详细信息快照，并存入本地 SQLite 数据库
-        同时写入 issue_main 表和 issue_snapshot 表
+        分别更新或插入 issue_main、issue_snapshot
+        状态变更才插入 issue_snapshot，否则只是更新 snapshot_at
         
         Args:
             project_id: 项目 ID
-            
+
         Returns:
-            Dictionary containing list of issues
+            Dictionary containing:
+            - issue_total: issue 总数
+            - issue_main_new: issue_main 表此次新增数量
+            - issue_snapshot_new: issue_snapshot 表此次新增数量
+            - status_changed: 状态(status)变更的 issue 数量
         """
         # Use current date as snapshot date
         snapshot_at = datetime.now().strftime('%Y-%m-%d')
         print(f"🔄 Cloning issue snapshot for project {project_id} from {snapshot_at}...")
         
-        # Get issues from GitLab API
+        # Step 1: Get all issues from REST API (primary data source)
         issues_data = self.api_client.get_issues(project_id, all_issues=True)
         
-        print(f"✅ Fetched {len(issues_data)} issues from GitLab")
+        issue_total = len(issues_data)
+        print(f"✅ Fetched {issue_total} issues from REST API")
         
-        # Insert into legacy issues table for backward compatibility
-        self.db.insert_issues_batch(project_id, issues_data, snapshot_at)
+        # Create a mapping from iid to issue for easy lookup
+        issues_by_iid = {issue.get('iid'): issue for issue in issues_data}
         
-        # Upsert into issue_main table (latest state)
-        self.db.upsert_issues_main_batch(project_id, issues_data)
-        print(f"✅ Upserted {len(issues_data)} issues to issue_main table")
+        # Step 2: Enhance issues with parent_id from GraphQL API
+        from graphql.client import get_issue_children
+        print(f"🔍 Fetching parent-child relationships from GraphQL...")
         
-        # Get main_status from GraphQL API and insert to issue_snapshot
-        from .graphql.client import get_issue_children
-        snapshots = []
+        total_issues = len(issues_data)
+        processed = 0
+        
         for issue in issues_data:
             issue_id = issue.get('id')
             if issue_id:
-                # Extract numeric ID from GraphQL ID (e.g., "gid://gitlab/WorkItem/123")
                 try:
-                    numeric_id = int(issue_id.split('/')[-1])
-                    main_status, children = get_issue_children(
-                        numeric_id,
-                        self.config.private_token,
-                        self.config.graphql_url
-                    )
-                    snapshots.append({
-                        'project_id': project_id,
-                        'iid': issue.get('iid'),
-                        'status': main_status,
-                        'snapshot_at': snapshot_at
-                    })
+                    # Extract numeric ID from GraphQL ID (e.g., "gid://gitlab/WorkItem/123")
+                    main_status, children = get_issue_children(issue_id)
+                    
+                    # Update this issue's status for snapshot tracking
+                    issue['_main_status'] = main_status
+                    
+                    # Process children to set their parent_id
+                    for child in children:
+                        child_iid = child.get('iid')
+                        if child_iid in issues_by_iid:
+                            # Update child's parent_id
+                            issues_by_iid[child_iid]['parent_id'] = issue.get('iid')
+                            # Update child's status
+                            issues_by_iid[child_iid]['_main_status'] = child.get('status')
+                            print(f"   ✓ Linked child {child_iid} to parent {issue.get('iid')}")
+                
                 except Exception as e:
-                    print(f"⚠️  Warning: Failed to get main_status for issue {issue.get('iid')}: {e}")
-                    # Still insert snapshot with empty status
-                    snapshots.append({
-                        'project_id': project_id,
-                        'iid': issue.get('iid'),
-                        'status': '',
-                        'snapshot_at': snapshot_at
-                    })
+                    print(f"⚠️  Warning: Failed to get children for issue {issue.get('iid')}: {e}")
+                    issue['_main_status'] = ''
+            
+            # Display progress every 10 issues or on completion
+            processed += 1
+            if processed % 10 == 0 or processed == total_issues:
+                print(f"   📊 Progress: {processed}/{total_issues} issues processed ({processed/total_issues:.1%})")
         
-        # Batch insert snapshots
-        self.db.insert_issue_snapshots_batch(snapshots)
-        print(f"✅ Inserted {len(snapshots)} snapshots to issue_snapshot table")
+        # Step 3: Insert into legacy issues table for backward compatibility
+        self.db.insert_issues_batch(project_id, issues_data, snapshot_at)
         
-        # Format response (only include essential fields as per PLAN)
-        issues_response = [
-            {
-                "title": issue.get('title'),
-                "iid": issue.get('iid'),
-                "assignees": [a.get('username') for a in issue.get('assignees', [])],
-                "status": issue.get('state'),
-                "labels": issue.get('labels', [])
-            }
-            for issue in issues_data
-        ]
+        # Step 4: Upsert into issue_main table (latest state)
+        # Track how many are new vs updated
+        issues_before = len(self.db.get_all_issues_main(project_id))
+        self.db.upsert_issues_main_batch(project_id, issues_data)
+        issues_after = len(self.db.get_all_issues_main(project_id))
+        issue_main_new = max(0, issues_after - issues_before)
+        print(f"✅ Upserted {issue_total} issues to issue_main table (new: {issue_main_new})")
         
+        # Step 5: Create snapshots with status change detection
+        # Now each issue has _main_status from GraphQL (either direct or from parent)
+        snapshots = []
+        for issue in issues_data:
+            status = issue.get('_main_status', '')
+            snapshots.append({
+                'project_id': project_id,
+                'iid': issue.get('iid'),
+                'status': status,
+                'snapshot_at': snapshot_at
+            })
+        
+        # Batch insert snapshots with status change detection
+        snapshot_stats = self.db.batch_insert_or_update_snapshots_with_status_change(snapshots)
+        print(f"✅ Processed {len(snapshots)} snapshots to issue_snapshot table:")
+        print(f"   - New statuses inserted: {snapshot_stats['inserted']}")
+        print(f"   - Existing statuses updated: {snapshot_stats['updated']}")
+        
+        # Step 6: Format response according to PLAN.md specification
         result = {
-            "project_id": project_id,
-            "snapshot_date": snapshot_at,
-            "total_count": len(issues_response),
-            "issues": issues_response
+            "issue_total": issue_total,
+            "issue_main_new": issue_main_new,
+            "issue_snapshot_new": snapshot_stats['inserted'],
+            "status_changed": snapshot_stats['inserted']
         }
         
-        print(f"✅ Clone snapshot completed: {len(issues_response)} issues")
+        print(f"✅ Clone snapshot completed:")
+        print(f"   - Total issues: {issue_total}")
+        print(f"   - New to issue_main: {issue_main_new}")
+        print(f"   - Status changes: {snapshot_stats['inserted']}")
+        
         return result
     
     def get_summary(
@@ -252,266 +278,6 @@ class IssueManager:
             List of issues
         """
         return self.db.get_issues_by_date_range(project_id, start_date, end_date)
-    
-    def clone_snapshot_filtered(
-        self,
-        project_id: int
-    ) -> Dict[str, Any]:
-        """
-        Clone issue snapshot with filtering based on test_export_issues logic
-        Only processes issues starting with module prefixes: STM, BCM, IDM, QSM, DMM, DOP
-        Handles parent and child issues separately, tracking relationships
-        
-        Args:
-            project_id: Project ID
-            
-        Returns:
-            Dictionary containing statistics and processed issues
-        """
-        from .graphql.client import get_issue_children
-        
-        snapshot_at = datetime.now().strftime('%Y-%m-%d')
-        print(f"🔄 Cloning filtered issue snapshot for project {project_id} from {snapshot_at}...")
-        
-        # Get issues from GitLab API (same as test_export_issues)
-        # Use the raw python-gitlab SDK for direct access matching test_export_issues
-        project = self.api_client.gl.projects.get(project_id)
-        issues = project.issues.list(all=True)
-        
-        print(f"✅ Fetched {len(issues)} total issues from GitLab")
-        
-        # Module prefixes to filter (same as test_export_issues)
-        module_prefixes = ('STM', 'BCM', 'IDM', 'QSM', 'DMM', 'DOP')
-        
-        exported = []
-        issue_desc = {}
-        issue_data = []
-        issue_messages = []
-        
-        count = 0
-        skipped_count = 0
-        
-        for issue in issues:
-            # Check if already processed as a child
-            if issue.iid in exported:
-                print(f"   - Child skip - {issue.iid}")
-                issue_desc[issue.iid] = issue.description
-                skipped_count += 1
-                continue
-            
-            # Filter by module prefix
-            if not str(issue.title).startswith(module_prefixes):
-                skipped_count += 1
-                continue
-            
-            # Get main_status and children from GraphQL
-            main_status, children = get_issue_children(
-                issue.id,
-                self.config.private_token,
-                self.config.graphql_url
-            )
-            
-            # Extract module prefix
-            module = issue.title[:3] if issue.title[:3] in module_prefixes else ''
-            
-            # Process parent issue
-            parent_issue_dict = {
-                'id': issue.id,
-                'iid': issue.iid,
-                'title': issue.title,
-                'module': module,
-                'parent_id': issue.iid,  # Parent is its own parent
-                'description': issue.description,
-                'labels': issue.labels,  # Already a list
-                'state': issue.state,
-                'main_status': main_status,
-                'assignees': [
-                    {
-                        'id': a['id'],
-                        'username': a['username'],
-                        'name': a['name']
-                    }
-                    for a in issue.assignees
-                ],
-                'created_at': issue.created_at,
-                'updated_at': issue.updated_at
-            }
-            issue_data.append(parent_issue_dict)
-            exported.append(issue.iid)
-            count += 1
-            issue_messages.append(f"   ✓ Parent issue {issue.iid}: {issue.title[:50]}...")
-            
-            # Process child issues
-            for child in children:
-                if child['iid'] in exported:
-                    print(f"   - Child skip - {child['iid']}")
-                    skipped_count += 1
-                    continue
-                
-                # Process child issue
-                child_issue_dict = {
-                    'id': child.get('id'),
-                    'iid': child['iid'],
-                    'title': child['title'],
-                    'module': module,
-                    'parent_id': issue.iid,  # Child's parent is the parent issue's iid
-                    'description': '',
-                    'labels': [label['title'] for label in child.get('labels', [])],
-                    'state': child.get('state'),
-                    'main_status': child.get('status'),
-                    'assignees': [
-                        {
-                            'id': a.get('id'),
-                            'username': a.get('username'),
-                            'name': a.get('name')
-                        }
-                        for a in child.get('assignees', [])
-                    ],
-                    'created_at': child.get('createdAt'),
-                    'updated_at': child.get('createdAt')
-                }
-                issue_data.append(child_issue_dict)
-                exported.append(child['iid'])
-                count += 1
-                issue_messages.append(f"     → Child issue {child['iid']}")
-        
-        # Parent descriptions (for issues that were first encountered as children)
-        for iid, desc in issue_desc.items():
-            for i, issue in enumerate(issue_data):
-                if issue['iid'] == iid:
-                    issue_data[i]['description'] = desc
-                    break
-        
-        print(f"\n📊 Processing {len(issue_data)} issues...")
-        for msg in issue_messages[:10]:  # Show first 10
-            print(msg)
-        if len(issue_messages) > 10:
-            print(f"   ... and {len(issue_messages) - 10} more")
-        
-        # Insert into legacy issues table
-        self.db.insert_issues_batch(project_id, issue_data, snapshot_at)
-        
-        # Upsert into issue_main table
-        self.db.upsert_issues_main_batch(project_id, issue_data)
-        print(f"✅ Upserted {len(issue_data)} issues to issue_main table")
-        
-        # Insert to issue_snapshot table
-        snapshots = []
-        for issue in issue_data:
-            snapshots.append({
-                'project_id': project_id,
-                'iid': issue['iid'],
-                'status': issue.get('main_status', ''),
-                'snapshot_at': snapshot_at
-            })
-        self.db.insert_issue_snapshots_batch(snapshots)
-        print(f"✅ Inserted {len(snapshots)} snapshots to issue_snapshot table")
-        
-        result = {
-            "project_id": project_id,
-            "snapshot_date": snapshot_at,
-            "total_issues_fetched": len(issues),
-            "issues_processed": count,
-            "issues_skipped": skipped_count,
-            "module_prefixes": list(module_prefixes),
-            "statistics": {
-                'parent_issues': len([i for i in issue_data if i['iid'] == i['parent_id']]),
-                'child_issues': len([i for i in issue_data if i['iid'] != i['parent_id']])
-            }
-        }
-        
-        print(f"✅ Clone filtered snapshot completed:")
-        print(f"   - Total fetched: {result['total_issues_fetched']}")
-        print(f"   - Processed: {result['issues_processed']}")
-        print(f"   - Skipped: {result['issues_skipped']}")
-        print(f"   - Parent issues: {result['statistics']['parent_issues']}")
-        print(f"   - Child issues: {result['statistics']['child_issues']}")
-        
-        return result
-    
-    def clone_snapshot_with_child_tasks(
-        self,
-        project_id: int,
-        start_date: str
-    ) -> Dict[str, Any]:
-        """
-        Clone issue snapshot including child tasks from GraphQL
-        
-        Args:
-            project_id: Project ID
-            start_date: Snapshot date
-            
-        Returns:
-            Dictionary containing issues with child tasks
-        """
-        from .graphql.client import get_issue_children
-        
-        print(f"🔄 Cloning issue snapshot with child tasks for project {project_id}...")
-        
-        # Get issues from API
-        issues_data = self.api_client.get_issues(project_id, all_issues=True)
-        
-        # Enrich with child tasks
-        enriched_issues = []
-        for issue in issues_data:
-            # Get child tasks via GraphQL
-            main_status, children = get_issue_children(
-                issue.get('id'),
-                self.config.private_token,
-                self.config.graphql_url
-            )
-            
-            enriched_issue = {
-                **issue,
-                'main_status': main_status,
-                'children': children
-            }
-            enriched_issues.append(enriched_issue)
-        
-        # Convert to format for database storage
-        issues_to_store = []
-        for issue in enriched_issues:
-            issues_to_store.append(self._simplify_issue_for_db(issue))
-        
-            # Store child tasks as separate issues
-            for child in issue.get('children', []):
-                child_issue = {
-                    'iid': child.get('iid'),
-                    'title': child.get('title'),
-                    'description': '',
-                    'state': child.get('state'),
-                    'labels': [l.get('title') for l in child.get('labels', [])],
-                    'assignees': [a.get('username') for a in child.get('assignees', [])],
-                    'created_at': child.get('createdAt'),
-                    'updated_at': child.get('createdAt'),
-                }
-                issues_to_store.append(child_issue)
-        
-        # Store in database
-        self.db.insert_issues_batch(project_id, issues_to_store, start_date)
-        
-        print(f"✅ Cloned {len(issues_to_store)} issues (including child tasks)")
-        
-        return {
-            "project_id": project_id,
-            "snapshot_date": start_date,
-            "total_count": len(enriched_issues),
-            "issues": enriched_issues
-        }
-    
-    def _simplify_issue_for_db(self, issue: Dict[str, Any]) -> Dict[str, Any]:
-        """Simplify issue dict for database storage"""
-        return {
-            'id': issue.get('id'),
-            'iid': issue.get('iid'),
-            'title': issue.get('title'),
-            'description': issue.get('description'),
-            'state': issue.get('state'),
-            'labels': issue.get('labels', []),
-            'assignees': issue.get('assignees', []),
-            'created_at': issue.get('created_at'),
-            'updated_at': issue.get('updated_at'),
-        }
 
 
 # Convenience functions
@@ -519,48 +285,26 @@ class IssueManager:
 def clone_snapshot(project_id: int) -> Dict[str, Any]:
     """
     Convenience function: Clone issue snapshot
-    
     Args:
         project_id: Project ID
-        
     Returns:
-        Dictionary containing issues
+        Dictionary containing statistics
     """
     manager = IssueManager()
     return manager.clone_snapshot(project_id)
 
-
-def clone_snapshot_filtered(project_id: int) -> Dict[str, Any]:
-    """
-    Convenience function: Clone filtered issue snapshot (module-based filtering)
-    Only processes issues starting with STM, BCM, IDM, QSM, DMM, DOP
-    Handles parent and child issues
-    
-    Args:
-        project_id: Project ID
-        
-    Returns:
-        Dictionary containing statistics and processed issues
-    """
-    manager = IssueManager()
-    return manager.clone_snapshot_filtered(project_id)
-
-
 def get_summary(project_id: int, start_date: str, end_date: Optional[str] = None) -> Dict[str, Any]:
     """
     Convenience function: Get issue summary
-    
     Args:
         project_id: Project ID
         start_date: Start date (YYYY-MM-DD)
         end_date: End date (YYYY-MM-DD)
-        
     Returns:
         Dictionary containing summary
     """
     manager = IssueManager()
     return manager.get_summary(project_id, start_date, end_date)
-
 
 def update_issue(
     project_id: int,
@@ -585,14 +329,7 @@ def update_issue(
 
 
 if __name__ == "__main__":
-    # Example usage
-    import os
-    
-    # Set token for testing
-    # if not os.getenv('GITLAB_PRIVATE_TOKEN'):
-    #     print("⚠️  Please set GITLAB_PRIVATE_TOKEN environment variable")
-    #     exit(1)
-    
+
     # Example: Clone snapshot
     result = clone_snapshot(project_id=4)
     print(result)
