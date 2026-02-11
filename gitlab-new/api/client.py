@@ -4,7 +4,7 @@ REST API client wrapper for GitLab
 
 from typing import Optional, List, Dict, Any
 from gitlab import Gitlab as GitLabSDK
-from ..config import Config
+from config import Config
 
 
 class GitLabClient:

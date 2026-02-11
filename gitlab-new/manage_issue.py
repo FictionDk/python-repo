@@ -10,10 +10,10 @@ Provides functionality for:
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 
-from .api.client import GitLabClient
-from .db.database import get_database
-from .user.manager import UserManager
-from .config import Config
+from api.client import GitLabClient
+from db.database import get_database
+from user.manager import UserManager
+from config import Config
 
 
 class IssueManager:
@@ -36,18 +36,19 @@ class IssueManager:
         if self.user_manager is None:
             self.user_manager = UserManager(self.config, project_id)
     
-    def clone_snapshot(self, project_id: int, start_date: str) -> Dict[str, Any]:
+    def clone_snapshot(self, project_id: int) -> Dict[str, Any]:
         """
-        获取指定时间点项目 Issue 的详细信息快照，并存入本地 SQLite 数据库
+        获取当前时间点项目 Issue 的详细信息快照，并存入本地 SQLite 数据库
         
         Args:
             project_id: 项目 ID
-            start_date: 开始日期 (格式: YYYY-MM-DD)
             
         Returns:
             Dictionary containing list of issues
         """
-        print(f"🔄 Cloning issue snapshot for project {project_id} from {start_date}...")
+        # Use current date as snapshot date
+        snapshot_at = datetime.now().strftime('%Y-%m-%d')
+        print(f"🔄 Cloning issue snapshot for project {project_id} from {snapshot_at}...")
         
         # Get issues from GitLab API
         issues_data = self.api_client.get_issues(project_id, all_issues=True)
@@ -55,7 +56,7 @@ class IssueManager:
         print(f"✅ Fetched {len(issues_data)} issues from GitLab")
         
         # Insert issues into database
-        self.db.insert_issues_batch(project_id, issues_data, start_date)
+        self.db.insert_issues_batch(project_id, issues_data, snapshot_at)
         
         # Format response (only include essential fields as per PLAN)
         issues_response = [
@@ -71,7 +72,7 @@ class IssueManager:
         
         result = {
             "project_id": project_id,
-            "snapshot_date": start_date,
+            "snapshot_date": snapshot_at,
             "total_count": len(issues_response),
             "issues": issues_response
         }
@@ -298,19 +299,18 @@ class IssueManager:
 
 # Convenience functions
 
-def clone_snapshot(project_id: int, start_date: str) -> Dict[str, Any]:
+def clone_snapshot(project_id: int) -> Dict[str, Any]:
     """
     Convenience function: Clone issue snapshot
     
     Args:
         project_id: Project ID
-        start_date: Start date (YYYY-MM-DD)
         
     Returns:
         Dictionary containing issues
     """
     manager = IssueManager()
-    return manager.clone_snapshot(project_id, start_date)
+    return manager.clone_snapshot(project_id)
 
 
 def get_summary(project_id: int, start_date: str, end_date: Optional[str] = None) -> Dict[str, Any]:
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     #     exit(1)
     
     # Example: Clone snapshot
-    result = clone_snapshot(project_id=4, start_date="2025-01-15")
+    result = clone_snapshot(project_id=4)
     print(result)
     
     # Example: Get summary

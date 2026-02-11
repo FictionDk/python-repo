@@ -51,8 +51,8 @@ config = Config(
 ```python
 from gitlab_new.manage_issue import clone_snapshot, get_summary, update_issue
 
-# Clone issue snapshot to database
-result = clone_snapshot(project_id=4, start_date="2025-01-15")
+# Clone issue snapshot to database (uses current date)
+result = clone_snapshot(project_id=4)
 print(f"Cloned {result['total_count']} issues")
 
 # Get issue summary statistics
@@ -156,8 +156,8 @@ gitlab-new/
 #### Clone Snapshot
 
 ```python
-def clone_snapshot(project_id: int, start_date: str) -> Dict[str, Any]:
-    """Clone all issues for a project to the database."""
+def clone_snapshot(project_id: int) -> Dict[str, Any]:
+    """Clone all issues for a project to the database using current date."""
 ```
 
 #### Get Summary

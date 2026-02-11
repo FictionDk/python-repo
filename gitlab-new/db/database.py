@@ -4,7 +4,7 @@ Database initialization and helper functions
 
 from typing import Optional
 from .models import Database
-from ..config import default_config
+from config import default_config
 
 
 # Global database instance

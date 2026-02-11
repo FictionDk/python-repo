@@ -5,8 +5,8 @@ User manager for GitLab package
 import json
 from typing import Optional, Dict, Any, List
 from gitlab import Gitlab as GitLabSDK
-from ..config import Config
-from ..db.database import get_database
+from config import Config
+from db.database import get_database
 
 
 class User:
