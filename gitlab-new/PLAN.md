@@ -1,31 +1,63 @@
-## Issue管理 manage_issue.py
+## 一、Issue管理
 
-### 1. 获取 Issue 快照
+### 1.1 表结构
 
-**方法描述**：获取指定时间点项目 Issue 的详细信息快照，并存入本地sqlite数据库
-
-**方法名**：`clone_snapshot`
-
-**入参**：
-- `project_id`: 项目 ID (str/int)
-- `start_date`: 开始日期 (格式: YYYY-MM-DD)
-
-**返回**：
-```json
-{
-  "issues": [
-    {
-      "title": "Issue 标题",
-      "iid": 123,
-      "assignees": ["用户名1", "用户名2"],
-      "status": "opened",
-      "labels": ["标签1", "标签2"]
-    }
-  ]
-}
+**表1: `issue_main`** - Issue 主表，存储当前最新状态
+```sql
+CREATE TABLE issue_main (
+    project_id INTEGER NOT NULL,
+    iid INTEGER NOT NULL,
+    parent_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    state TEXT,
+    labels TEXT,           -- JSON 数组，存储标签
+    assignees TEXT,        -- JSON 数组，存储指派人
+    created_at TEXT,
+    updated_at TEXT,
+    issue_id TEXT,         -- GraphQL ID (例如: "gid://gitlab/WorkItem/123")
+    PRIMARY KEY (project_id, iid)
+)
 ```
+- 主键：`(project_id, iid)`
+- 行为：UPSERT - 如果记录存在则更新，不存在则插入
+- 用途：存储每个 Issue 的最新状态，便于快速查询和更新操作
 
-### 2. 获取 Issue 概要
+**表2: `issue_snapshot`** - Issue 快照表，存储历史状态
+```sql
+CREATE TABLE issue_snapshot (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    iid INTEGER NOT NULL,
+    status TEXT,           -- 从 GraphQL API 获取的 main_status
+    create_at TEXT NOT NULL, -- 当前status插入时间
+    snapshot_at TEXT NOT NULL,  -- 快照日期 (格式: YYYY-MM-DD)最后一次的变更日期
+    UNIQUE(project_id, iid, status)
+)
+```
+- 主键：自增 `id`
+- 唯一约束：`(project_id, iid, snapshot_at)`
+- 字段 `status`：存储从 GraphQL API 获取的 `main_status`
+- 用途：跟踪 Issue 状态随时间的变化，用于统计分析
+
+### 1.2 方法
+
+#### 1.2.1 同步 Issue 快照
+
+1. 方法描述：获取当前时间点项目 Issue 的详细信息快照，并存入本地sqlite数据库
+  - 先通过restful方式（api/client.py）获取指定project项目下所有issue和概要信息(iid、title、labels、assignees)
+  - 再使用graphql方式（graphql/client.py）获取指定issue的其他关键信息(parent_id、status)
+  - 分别更新或插入issue_main、issue_snapshot
+  - 状态方式变更，才插入issue_snapshot，否则只是更新snapshot_at
+2. 方法名称`clone_snapshot`
+3. 入参：
+  - `project_id`项目 ID (str/int)
+4. 返回
+  - issue总数
+  - `issue_main`表此次新增数量
+  - `issue_snapshot`表此次新增数量，状态（status）变更的issue数量
+
+### 1.2.2 获取 Issue 概要
 
 **方法描述**：根据 Issue 快照库获取指定时间范围(默认一周)内 Issue 的统计概要数据，包括各状态的 Issue 数量和该时间范围内开发关闭的 Issue 数。
 
@@ -49,7 +81,7 @@
 }
 ```
 
-### 3. 更新 Issue
+### 1.2.3 更新 Issue
 
 **方法描述**：更新指定 Issue 的指派人（assignees）和标签（labels）。
 
@@ -73,14 +105,10 @@
 }
 ```
 
-### 4. Issue 存储结构
-1. Issue-Main表，主键为iid，如果存在就更新，不存在则插入
-2. Issue-Snapshot，主键为自增id，iid和shapshot_at联合唯一，字段为 status，使用graphql_request请求获取的main_status
 
+## 二、Commit管理 manage_commit.py
 
-## Commit管理 manage_commit.py
-
-### 1. 获取 Commit 概要
+### 2.1 获取 Commit 概要
 
 **方法描述**：获取指定时间范围内 Commit 的统计概要数据，包括总数、需求数、修复数和关闭提交数。
 
@@ -101,9 +129,7 @@
 }
 ```
 
----
-
-### 2. 获取 Commit 快照
+### 2.2 获取 Commit 快照
 
 **方法描述**：获取指定时间范围内所有 Commit 的详细信息快照。
 
@@ -132,9 +158,7 @@
 }
 ```
 
----
-
-### 3. 按 Issue 统计 Commit
+### 2.3 按 Issue 统计 Commit
 
 **方法描述**：根据 Issue IID 获取关联的所有 Commit 信息。
 
@@ -160,7 +184,7 @@
 }
 ```
 
-### 4. 根据 Commit 更新 Issue
+### 2.4 根据 Commit 更新 Issue
 
 **方法描述**：根据 Commit 作者更新对应 Issue 的指派人和标签。如果前端完成添加 `front_finished` 标签，后端完成添加 `backend_finished` 标签。
 

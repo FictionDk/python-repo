@@ -36,10 +36,46 @@ class Database:
     
     def init_tables(self):
         """Initialize all database tables"""
-        self._create_issues_table()
+        self._create_issue_main_table()
+        self._create_issue_snapshot_table()
         self._create_commits_table()
         self._create_users_table()
+        # Keep old _create_issues_table for backward compatibility
+        self._create_issues_table()
         print("✅ Database tables initialized")
+    
+    def _create_issue_main_table(self):
+        """Create issue_main table for storing latest issue state"""
+        self.connect().execute('''
+            CREATE TABLE IF NOT EXISTS issue_main (
+                project_id INTEGER NOT NULL,
+                iid INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                state TEXT,
+                labels TEXT,
+                assignees TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                issue_id TEXT,
+                PRIMARY KEY (project_id, iid)
+            )
+        ''')
+        self.connect().commit()
+    
+    def _create_issue_snapshot_table(self):
+        """Create issue_snapshot table for storing historical issue status"""
+        self.connect().execute('''
+            CREATE TABLE IF NOT EXISTS issue_snapshot (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                iid INTEGER NOT NULL,
+                status TEXT,
+                snapshot_at TEXT NOT NULL,
+                UNIQUE(project_id, iid, snapshot_at)
+            )
+        ''')
+        self.connect().commit()
     
     def _create_issues_table(self):
         """Create issues table"""
@@ -99,7 +135,350 @@ class Database:
         ''')
         self.connect().commit()
     
-    # ================== Issues Operations ==================
+    # ================== Issue Main Table Operations ==================
+    
+    def upsert_issue_main(self, project_id: int, issue_data: Dict[str, Any]):
+        """
+        Upsert issue to issue_main table (update if exists, insert if not)
+        
+        Args:
+            project_id: Project ID
+            issue_data: Issue data from API
+        """
+        self.connect().execute('''
+            INSERT OR REPLACE INTO issue_main (
+                project_id, iid, title, description, state, labels, 
+                assignees, created_at, updated_at, issue_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            project_id,
+            issue_data.get('iid'),
+            issue_data.get('title'),
+            issue_data.get('description'),
+            issue_data.get('state'),
+            json.dumps(issue_data.get('labels', [])),
+            json.dumps([a.get('username') for a in issue_data.get('assignees', [])]),
+            issue_data.get('created_at'),
+            issue_data.get('updated_at'),
+            issue_data.get('id')  # GraphQL ID (e.g., "gid://gitlab/WorkItem/123")
+        ))
+        self.connect().commit()
+    
+    def upsert_issues_main_batch(self, project_id: int, issues: List[Dict[str, Any]]):
+        """
+        Batch upsert issues to issue_main table
+        
+        Args:
+            project_id: Project ID
+            issues: List of issue data
+        """
+        conn = self.connect()
+        for issue in issues:
+            conn.execute('''
+                INSERT OR REPLACE INTO issue_main (
+                    project_id, iid, title, description, state, labels, 
+                    assignees, created_at, updated_at, issue_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                project_id,
+                issue.get('iid'),
+                issue.get('title'),
+                issue.get('description'),
+                issue.get('state'),
+                json.dumps(issue.get('labels', [])),
+                json.dumps([a.get('username') for a in issue.get('assignees', [])]),
+                issue.get('created_at'),
+                issue.get('updated_at'),
+                issue.get('id')
+            ))
+        conn.commit()
+    
+    def get_issue_main(self, project_id: int, iid: int) -> Optional[Dict[str, Any]]:
+        """
+        Get latest issue state from issue_main table
+        
+        Args:
+            project_id: Project ID
+            iid: Issue IID
+            
+        Returns:
+            Issue data or None
+        """
+        cursor = self.connect().execute('''
+            SELECT * FROM issue_main 
+            WHERE project_id = ? AND iid = ?
+        ''', (project_id, iid))
+        
+        row = cursor.fetchone()
+        if row:
+            return self._row_to_issue_main(row)
+        return None
+    
+    def get_all_issues_main(self, project_id: int) -> List[Dict[str, Any]]:
+        """
+        Get all latest issues from issue_main table
+        
+        Args:
+            project_id: Project ID
+            
+        Returns:
+            List of issues
+        """
+        cursor = self.connect().execute('''
+            SELECT * FROM issue_main 
+            WHERE project_id = ?
+            ORDER BY iid
+        ''', (project_id,))
+        
+        return [self._row_to_issue_main(row) for row in cursor.fetchall()]
+    
+    def _row_to_issue_main(self, row: sqlite3.Row) -> Dict[str, Any]:
+        """Convert database row to issue_main dictionary"""
+        return {
+            'project_id': row['project_id'],
+            'iid': row['iid'],
+            'title': row['title'],
+            'description': row['description'],
+            'state': row['state'],
+            'labels': json.loads(row['labels']) if row['labels'] else [],
+            'assignees': json.loads(row['assignees']) if row['assignees'] else [],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at'],
+            'issue_id': row['issue_id']
+        }
+    
+    # ================== Issue Snapshot Table Operations ==================
+    
+    def insert_issue_snapshot(
+        self, 
+        project_id: int, 
+        iid: int, 
+        status: str, 
+        snapshot_date: str
+    ):
+        """
+        Insert issue status snapshot
+        
+        Args:
+            project_id: Project ID
+            iid: Issue IID
+            status: Main status from GraphQL API
+            snapshot_date: Snapshot date (YYYY-MM-DD)
+        """
+        try:
+            self.connect().execute('''
+                INSERT OR REPLACE INTO issue_snapshot (
+                    project_id, iid, status, snapshot_at
+                ) VALUES (?, ?, ?, ?)
+            ''', (project_id, iid, status, snapshot_date))
+            self.connect().commit()
+        except sqlite3.IntegrityError:
+            # Ignore duplicate entries
+            pass
+    
+    def insert_issue_snapshots_batch(
+        self, 
+        snapshots: List[Dict[str, Any]]
+    ):
+        """
+        Batch insert issue snapshots
+        
+        Args:
+            snapshots: List of snapshot dictionaries with keys:
+                      project_id, iid, status, snapshot_at
+        """
+        conn = self.connect()
+        for snapshot in snapshots:
+            try:
+                conn.execute('''
+                    INSERT OR REPLACE INTO issue_snapshot (
+                        project_id, iid, status, snapshot_at
+                    ) VALUES (?, ?, ?, ?)
+                ''', (
+                    snapshot.get('project_id'),
+                    snapshot.get('iid'),
+                    snapshot.get('status'),
+                    snapshot.get('snapshot_at')
+                ))
+            except sqlite3.IntegrityError:
+                # Ignore duplicate entries
+                pass
+        conn.commit()
+    
+    def get_issue_snapshots(
+        self, 
+        project_id: int, 
+        start_date: str, 
+        end_date: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get issue snapshots for a date range
+        
+        Args:
+            project_id: Project ID
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            
+        Returns:
+            List of snapshot records
+        """
+        cursor = self.connect().execute('''
+            SELECT * FROM issue_snapshot 
+            WHERE project_id = ? AND snapshot_at >= ? AND snapshot_at <= ?
+            ORDER BY iid, snapshot_at
+        ''', (project_id, start_date, end_date))
+        
+        return [self._row_to_issue_snapshot(row) for row in cursor.fetchall()]
+    
+    def get_issue_snapshots_by_iid(
+        self,
+        project_id: int,
+        iid: int,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get snapshots for a specific issue
+        
+        Args:
+            project_id: Project ID
+            iid: Issue IID
+            start_date: Optional start date
+            end_date: Optional end date
+            
+        Returns:
+            List of snapshot records
+        """
+        if start_date and end_date:
+            cursor = self.connect().execute('''
+                SELECT * FROM issue_snapshot 
+                WHERE project_id = ? AND iid = ? AND snapshot_at >= ? AND snapshot_at <= ?
+                ORDER BY snapshot_at
+            ''', (project_id, iid, start_date, end_date))
+        else:
+            cursor = self.connect().execute('''
+                SELECT * FROM issue_snapshot 
+                WHERE project_id = ? AND iid = ?
+                ORDER BY snapshot_at
+            ''', (project_id, iid))
+        
+        return [self._row_to_issue_snapshot(row) for row in cursor.fetchall()]
+    
+    def _row_to_issue_snapshot(self, row: sqlite3.Row) -> Dict[str, Any]:
+        """Convert database row to issue_snapshot dictionary"""
+        return {
+            'id': row['id'],
+            'project_id': row['project_id'],
+            'iid': row['iid'],
+            'status': row['status'],
+            'snapshot_at': row['snapshot_at']
+        }
+    
+    def get_issues_summary_from_snapshots(
+        self, 
+        project_id: int, 
+        start_date: str, 
+        end_date: str
+    ) -> Dict[str, Any]:
+        """
+        Get issues summary statistics using the new two-table structure
+        Combines data from issue_snapshot (historical status) and issue_main (latest data)
+        
+        Args:
+            project_id: Project ID
+            start_date: Start date
+            end_date: End date
+            
+        Returns:
+            Dictionary with summary statistics
+        """
+        # Get snapshots from issue_snapshot table
+        snapshots = self.get_issue_snapshots(project_id, start_date, end_date)
+        
+        # Get unique issues and their latest status from snapshots
+        issue_status_map = {}
+        for snapshot in snapshots:
+            iid = snapshot['iid']
+            status = snapshot['status']
+            snapshot_at = snapshot['snapshot_at']
+            
+            # If we don't have this issue yet, or this is a newer snapshot
+            if iid not in issue_status_map or snapshot_at > issue_status_map[iid]['snapshot_at']:
+                issue_status_map[iid] = {
+                    'status': status,
+                    'snapshot_at': snapshot_at
+                }
+        
+        # Get latest issue data from issue_main table to get labels for mapping
+        all_issues = self.get_all_issues_main(project_id)
+        issue_labels_map = {issue['iid']: issue['labels'] for issue in all_issues}
+        
+        # Get unique issue IIDs from both sources
+        unique_iids = set(issue_status_map.keys()).union(issue_labels_map.keys())
+        
+        # Calculate summary
+        summary = {
+            'total': len(unique_iids),
+            'left_pending': 0,
+            'to_development': 0,
+            'to_testing': 0,
+            'to_completed': 0,
+            'to_bug': 0,
+            'to_fixed': 0
+        }
+        
+        for iid in unique_iids:
+            status = issue_status_map.get(iid, {}).get('status', '')
+            labels = issue_labels_map.get(iid, [])
+            
+            # Map based on main_status from GraphQL if available
+            if status:
+                # Use GraphQL main_status for categorization
+                status_lower = status.lower()
+                if 'pending' in status_lower or '待' in status:
+                    summary['left_pending'] += 1
+                elif 'development' in status_lower or '开发' in status:
+                    summary['to_development'] += 1
+                elif 'testing' in status_lower or '测试' in status:
+                    summary['to_testing'] += 1
+                elif 'completed' in status_lower or '完成' in status_lower or 'done' in status_lower:
+                    summary['to_completed'] += 1
+                elif 'bug' in status_lower:
+                    summary['to_bug'] += 1
+                elif 'fixed' in status_lower or 'fix' in status_lower:
+                    summary['to_fixed'] += 1
+                else:
+                    # Fallback to label mapping if status doesn't match known patterns
+                    if '待处理' in labels or 'pending' in [l.lower() for l in labels]:
+                        summary['left_pending'] += 1
+                    elif '开发中' in labels or 'development' in [l.lower() for l in labels]:
+                        summary['to_development'] += 1
+                    elif '测试中' in labels or 'testing' in [l.lower() for l in labels]:
+                        summary['to_testing'] += 1
+                    elif '已完成' in labels or 'completed' in [l.lower() for l in labels]:
+                        summary['to_completed'] += 1
+                    elif 'bug' in [l.lower() for l in labels]:
+                        summary['to_bug'] += 1
+                    elif 'fixed' in [l.lower() for l in labels]:
+                        summary['to_fixed'] += 1
+            else:
+                # Fallback to label mapping only
+                if '待处理' in labels or 'pending' in [l.lower() for l in labels]:
+                    summary['left_pending'] += 1
+                elif '开发中' in labels or 'development' in [l.lower() for l in labels]:
+                    summary['to_development'] += 1
+                elif '测试中' in labels or 'testing' in [l.lower() for l in labels]:
+                    summary['to_testing'] += 1
+                elif '已完成' in labels or 'completed' in [l.lower() for l in labels]:
+                    summary['to_completed'] += 1
+                elif 'bug' in [l.lower() for l in labels]:
+                    summary['to_bug'] += 1
+                elif 'fixed' in [l.lower() for l in labels]:
+                    summary['to_fixed'] += 1
+        
+        return summary
+    
+    # ================== Legacy Issues Table Operations ==================
     
     def insert_issue(self, project_id: int, issue_data: Dict[str, Any], snapshot_date: str):
         """

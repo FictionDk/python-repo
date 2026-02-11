@@ -39,6 +39,7 @@ class IssueManager:
     def clone_snapshot(self, project_id: int) -> Dict[str, Any]:
         """
         获取当前时间点项目 Issue 的详细信息快照，并存入本地 SQLite 数据库
+        同时写入 issue_main 表和 issue_snapshot 表
         
         Args:
             project_id: 项目 ID
@@ -55,8 +56,46 @@ class IssueManager:
         
         print(f"✅ Fetched {len(issues_data)} issues from GitLab")
         
-        # Insert issues into database
+        # Insert into legacy issues table for backward compatibility
         self.db.insert_issues_batch(project_id, issues_data, snapshot_at)
+        
+        # Upsert into issue_main table (latest state)
+        self.db.upsert_issues_main_batch(project_id, issues_data)
+        print(f"✅ Upserted {len(issues_data)} issues to issue_main table")
+        
+        # Get main_status from GraphQL API and insert to issue_snapshot
+        from .graphql.client import get_issue_children
+        snapshots = []
+        for issue in issues_data:
+            issue_id = issue.get('id')
+            if issue_id:
+                # Extract numeric ID from GraphQL ID (e.g., "gid://gitlab/WorkItem/123")
+                try:
+                    numeric_id = int(issue_id.split('/')[-1])
+                    main_status, children = get_issue_children(
+                        numeric_id,
+                        self.config.private_token,
+                        self.config.graphql_url
+                    )
+                    snapshots.append({
+                        'project_id': project_id,
+                        'iid': issue.get('iid'),
+                        'status': main_status,
+                        'snapshot_at': snapshot_at
+                    })
+                except Exception as e:
+                    print(f"⚠️  Warning: Failed to get main_status for issue {issue.get('iid')}: {e}")
+                    # Still insert snapshot with empty status
+                    snapshots.append({
+                        'project_id': project_id,
+                        'iid': issue.get('iid'),
+                        'status': '',
+                        'snapshot_at': snapshot_at
+                    })
+        
+        # Batch insert snapshots
+        self.db.insert_issue_snapshots_batch(snapshots)
+        print(f"✅ Inserted {len(snapshots)} snapshots to issue_snapshot table")
         
         # Format response (only include essential fields as per PLAN)
         issues_response = [
@@ -88,6 +127,7 @@ class IssueManager:
     ) -> Dict[str, Any]:
         """
         根据 Issue 快照库获取指定时间范围内 Issue 的统计概要数据
+        使用新的双表结构 (issue_main + issue_snapshot) 进行查询
         
         If end_date not provided, defaults to one week after start_date
         
@@ -107,7 +147,8 @@ class IssueManager:
         
         print(f"📊 Getting issue summary for project {project_id} from {start_date} to {end_date}...")
         
-        summary = self.db.get_issues_summary(project_id, start_date, end_date)
+        # Use new two-table structure to get summary
+        summary = self.db.get_issues_summary_from_snapshots(project_id, start_date, end_date)
         
         print(f"✅ Issue summary: {summary}")
         return summary
@@ -212,6 +253,182 @@ class IssueManager:
         """
         return self.db.get_issues_by_date_range(project_id, start_date, end_date)
     
+    def clone_snapshot_filtered(
+        self,
+        project_id: int
+    ) -> Dict[str, Any]:
+        """
+        Clone issue snapshot with filtering based on test_export_issues logic
+        Only processes issues starting with module prefixes: STM, BCM, IDM, QSM, DMM, DOP
+        Handles parent and child issues separately, tracking relationships
+        
+        Args:
+            project_id: Project ID
+            
+        Returns:
+            Dictionary containing statistics and processed issues
+        """
+        from .graphql.client import get_issue_children
+        
+        snapshot_at = datetime.now().strftime('%Y-%m-%d')
+        print(f"🔄 Cloning filtered issue snapshot for project {project_id} from {snapshot_at}...")
+        
+        # Get issues from GitLab API (same as test_export_issues)
+        # Use the raw python-gitlab SDK for direct access matching test_export_issues
+        project = self.api_client.gl.projects.get(project_id)
+        issues = project.issues.list(all=True)
+        
+        print(f"✅ Fetched {len(issues)} total issues from GitLab")
+        
+        # Module prefixes to filter (same as test_export_issues)
+        module_prefixes = ('STM', 'BCM', 'IDM', 'QSM', 'DMM', 'DOP')
+        
+        exported = []
+        issue_desc = {}
+        issue_data = []
+        issue_messages = []
+        
+        count = 0
+        skipped_count = 0
+        
+        for issue in issues:
+            # Check if already processed as a child
+            if issue.iid in exported:
+                print(f"   - Child skip - {issue.iid}")
+                issue_desc[issue.iid] = issue.description
+                skipped_count += 1
+                continue
+            
+            # Filter by module prefix
+            if not str(issue.title).startswith(module_prefixes):
+                skipped_count += 1
+                continue
+            
+            # Get main_status and children from GraphQL
+            main_status, children = get_issue_children(
+                issue.id,
+                self.config.private_token,
+                self.config.graphql_url
+            )
+            
+            # Extract module prefix
+            module = issue.title[:3] if issue.title[:3] in module_prefixes else ''
+            
+            # Process parent issue
+            parent_issue_dict = {
+                'id': issue.id,
+                'iid': issue.iid,
+                'title': issue.title,
+                'module': module,
+                'parent_id': issue.iid,  # Parent is its own parent
+                'description': issue.description,
+                'labels': issue.labels,  # Already a list
+                'state': issue.state,
+                'main_status': main_status,
+                'assignees': [
+                    {
+                        'id': a['id'],
+                        'username': a['username'],
+                        'name': a['name']
+                    }
+                    for a in issue.assignees
+                ],
+                'created_at': issue.created_at,
+                'updated_at': issue.updated_at
+            }
+            issue_data.append(parent_issue_dict)
+            exported.append(issue.iid)
+            count += 1
+            issue_messages.append(f"   ✓ Parent issue {issue.iid}: {issue.title[:50]}...")
+            
+            # Process child issues
+            for child in children:
+                if child['iid'] in exported:
+                    print(f"   - Child skip - {child['iid']}")
+                    skipped_count += 1
+                    continue
+                
+                # Process child issue
+                child_issue_dict = {
+                    'id': child.get('id'),
+                    'iid': child['iid'],
+                    'title': child['title'],
+                    'module': module,
+                    'parent_id': issue.iid,  # Child's parent is the parent issue's iid
+                    'description': '',
+                    'labels': [label['title'] for label in child.get('labels', [])],
+                    'state': child.get('state'),
+                    'main_status': child.get('status'),
+                    'assignees': [
+                        {
+                            'id': a.get('id'),
+                            'username': a.get('username'),
+                            'name': a.get('name')
+                        }
+                        for a in child.get('assignees', [])
+                    ],
+                    'created_at': child.get('createdAt'),
+                    'updated_at': child.get('createdAt')
+                }
+                issue_data.append(child_issue_dict)
+                exported.append(child['iid'])
+                count += 1
+                issue_messages.append(f"     → Child issue {child['iid']}")
+        
+        # Parent descriptions (for issues that were first encountered as children)
+        for iid, desc in issue_desc.items():
+            for i, issue in enumerate(issue_data):
+                if issue['iid'] == iid:
+                    issue_data[i]['description'] = desc
+                    break
+        
+        print(f"\n📊 Processing {len(issue_data)} issues...")
+        for msg in issue_messages[:10]:  # Show first 10
+            print(msg)
+        if len(issue_messages) > 10:
+            print(f"   ... and {len(issue_messages) - 10} more")
+        
+        # Insert into legacy issues table
+        self.db.insert_issues_batch(project_id, issue_data, snapshot_at)
+        
+        # Upsert into issue_main table
+        self.db.upsert_issues_main_batch(project_id, issue_data)
+        print(f"✅ Upserted {len(issue_data)} issues to issue_main table")
+        
+        # Insert to issue_snapshot table
+        snapshots = []
+        for issue in issue_data:
+            snapshots.append({
+                'project_id': project_id,
+                'iid': issue['iid'],
+                'status': issue.get('main_status', ''),
+                'snapshot_at': snapshot_at
+            })
+        self.db.insert_issue_snapshots_batch(snapshots)
+        print(f"✅ Inserted {len(snapshots)} snapshots to issue_snapshot table")
+        
+        result = {
+            "project_id": project_id,
+            "snapshot_date": snapshot_at,
+            "total_issues_fetched": len(issues),
+            "issues_processed": count,
+            "issues_skipped": skipped_count,
+            "module_prefixes": list(module_prefixes),
+            "statistics": {
+                'parent_issues': len([i for i in issue_data if i['iid'] == i['parent_id']]),
+                'child_issues': len([i for i in issue_data if i['iid'] != i['parent_id']])
+            }
+        }
+        
+        print(f"✅ Clone filtered snapshot completed:")
+        print(f"   - Total fetched: {result['total_issues_fetched']}")
+        print(f"   - Processed: {result['issues_processed']}")
+        print(f"   - Skipped: {result['issues_skipped']}")
+        print(f"   - Parent issues: {result['statistics']['parent_issues']}")
+        print(f"   - Child issues: {result['statistics']['child_issues']}")
+        
+        return result
+    
     def clone_snapshot_with_child_tasks(
         self,
         project_id: int,
@@ -311,6 +528,22 @@ def clone_snapshot(project_id: int) -> Dict[str, Any]:
     """
     manager = IssueManager()
     return manager.clone_snapshot(project_id)
+
+
+def clone_snapshot_filtered(project_id: int) -> Dict[str, Any]:
+    """
+    Convenience function: Clone filtered issue snapshot (module-based filtering)
+    Only processes issues starting with STM, BCM, IDM, QSM, DMM, DOP
+    Handles parent and child issues
+    
+    Args:
+        project_id: Project ID
+        
+    Returns:
+        Dictionary containing statistics and processed issues
+    """
+    manager = IssueManager()
+    return manager.clone_snapshot_filtered(project_id)
 
 
 def get_summary(project_id: int, start_date: str, end_date: Optional[str] = None) -> Dict[str, Any]:
