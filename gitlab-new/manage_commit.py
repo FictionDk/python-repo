@@ -1,11 +1,7 @@
 """
 Commit Management Module
 
-Provides functionality for:
-1. Get commit summary statistics
-2. Get commit snapshots
-3. Query commits by issue
-4. Update issue based on commit information
+Provides functionality for cloning/syncing commits from GitLab to database
 """
 
 from typing import Optional, List, Dict, Any
@@ -16,7 +12,6 @@ import json
 
 from api.client import GitLabClient
 from db.database import get_database
-from user.manager import UserManager
 from config import Config
 
 
@@ -33,12 +28,6 @@ class CommitManager:
         self.config = config or Config()
         self.api_client = GitLabClient(self.config)
         self.db = get_database()
-        self.user_manager: Optional[UserManager] = None
-    
-    def _load_users(self, project_id: int):
-        """Load users for the project"""
-        if self.user_manager is None:
-            self.user_manager = UserManager(self.config, project_id)
     
     def _get_current_time_utc8(self) -> str:
         """
@@ -159,221 +148,6 @@ class CommitManager:
         
         return len(enriched_commits)
     
-    def get_summary(
-        self,
-        project_id: int,
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
-        """
-        获取指定时间范围内 Commit 的统计概要数据
-        
-        Args:
-            project_id: 项目 ID
-            start_date: 开始日期 (格式: YYYY-MM-DD)
-            end_date: 结束日期 (格式: YYYY-MM-DD)
-            
-        Returns:
-            Dictionary containing commit summary statistics
-        """
-        print(f"📊 Getting commit summary for project {project_id} from {start_date} to {end_date}...")
-        
-        summary = self.db.get_commits_summary(project_id, start_date, end_date)
-        
-        print(f"✅ Commit summary: {summary}")
-        return summary
-    
-    def get_snapshot(
-        self,
-        project_id: int,
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
-        """
-        获取指定时间范围内所有 Commit 的详细信息快照
-        
-        Args:
-            project_id: 项目 ID
-            start_date: 开始日期 (格式: YYYY-MM-DD)
-            end_date: 结束日期 (格式: YYYY-MM-DD)
-            
-        Returns:
-            Dictionary containing list of commits
-        """
-        print(f"🔄 Cloning commit snapshot for project {project_id} from {start_date} to {end_date}...")
-        
-        # Get commits from GitLab API
-        # Convert dates to ISO format for API
-        since_date = f"{start_date}T00:00:00Z"
-        until_date = f"{end_date}T23:59:59Z"
-        
-        commits_data = self.api_client.get_commits(
-            project_id,
-            since=since_date,
-            until=until_date,
-            all_commits=True
-        )
-        
-        print(f"✅ Fetched {len(commits_data)} commits from GitLab")
-        
-        # Process commits to extract issue references
-        enriched_commits = []
-        for commit in commits_data:
-            enriched_commit = self._enrich_commit_with_issue(project_id, commit)
-            enriched_commits.append(enriched_commit)
-        
-        # Insert commits into database
-        self.db.insert_commits_batch(project_id, enriched_commits)
-        
-        # Format response as per PLAN
-        commits_response = [
-            {
-                "title": commit.get('title'),
-                "project": commit.get('project_name', ''),
-                "iid": commit.get('short_id'),
-                "author_name": commit.get('author_name'),
-                "authored_date": commit.get('committed_date'),
-                "committed_date": commit.get('committed_date'),
-                "short_id": commit.get('short_id'),
-                "rate": commit.get('rate_message', 'normal')
-            }
-            for commit in enriched_commits
-        ]
-        
-        result = {
-            "project_id": project_id,
-            "start_date": start_date,
-            "end_date": end_date,
-            "total_count": len(commits_response),
-            "commits": commits_response
-        }
-        
-        print(f"✅ Clone snapshot completed: {len(commits_response)} commits")
-        return result
-    
-    def get_commits_by_issue(
-        self,
-        project_id: int,
-        issue_iid: int
-    ) -> Dict[str, Any]:
-        """
-        根据 Issue IID 获取关联的所有 Commit 信息
-        
-        Args:
-            project_id: 项目 ID
-            issue_iid: Issue IID
-            
-        Returns:
-            Dictionary containing issue info and commits
-        """
-        print(f"🔍 Getting commits for issue {issue_iid} in project {project_id}...")
-        
-        # Get commits from database
-        commits = self.db.get_commits_by_issue(project_id, issue_iid)
-        
-        # Format response as per PLAN
-        commits_response = [
-            {
-                "title": commit.get('title'),
-                "project": commit.get('project_name', ''),
-                "author_name": commit.get('author_name'),
-                "authored_date": commit.get('committed_date'),
-                "committed_date": commit.get('committed_date')
-            }
-            for commit in commits
-        ]
-        
-        result = {
-            "issue_iid": issue_iid,
-            "project_id": project_id,
-            "total_count": len(commits_response),
-            "commits": commits_response
-        }
-        
-        print(f"✅ Found {len(commits_response)} commits for issue {issue_iid}")
-        return result
-    
-    def update_issue_by_commit(
-        self,
-        project_id: int,
-        issue_iid: int,
-        author_name: str,
-        is_frontend: bool = False,
-        is_backend: bool = False
-    ) -> Dict[str, Any]:
-        """
-        根据 Commit 作者更新对应 Issue 的指派人和标签
-        
-        如果前端完成添加 `front_finished` 标签，后端完成添加 `backend_finished` 标签
-        
-        Args:
-            project_id: 项目 ID
-            issue_iid: Issue IID
-            author_name: Commit 作者用户名
-            is_frontend: 是否为前端提交
-            is_backend: 是否为后端提交
-            
-        Returns:
-            Dictionary containing update result
-        """
-        print(f"✏️  Updating issue {issue_iid} based on commit by {author_name}...")
-        
-        # Load users for validation
-        self._load_users(project_id)
-        
-        # Validate author exists
-        user = self.user_manager.get_user_by_username(author_name)
-        if not user:
-            print(f"❌ Error: User '{author_name}' not found in project members")
-            return {
-                "success": False,
-                "error": f"User '{author_name}' not found in project members"
-            }
-        
-        # Determine labels to add
-        labels_to_add = []
-        if is_frontend:
-            labels_to_add.append("front_finished")
-        if is_backend:
-            labels_to_add.append("backend_finished")
-        
-        # Get current issue
-        try:
-            current_issue = self.api_client.get_issue(project_id, issue_iid)
-        except Exception as e:
-            print(f"❌ Error fetching issue {issue_iid}: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-        
-        # Update assignees (add author if not already assigned)
-        current_assignees = [a.get('username') for a in current_issue.get('assignees', [])]
-        new_assignees = list(set(current_assignees + [author_name]))
-        
-        self.api_client.update_issue_assignees(project_id, issue_iid, new_assignees)
-        
-        # Add labels
-        if labels_to_add:
-            self.api_client.add_issue_labels(project_id, issue_iid, labels_to_add)
-        
-        # Get updated issue
-        updated_issue = self.api_client.get_issue(project_id, issue_iid)
-        updated_labels = updated_issue.get('labels', [])
-        
-        result = {
-            "success": True,
-            "updated": {
-                "issue_iid": issue_iid,
-                "assignees": new_assignees,
-                "added_labels": [l for l in labels_to_add if l in updated_labels],
-                "all_labels": updated_labels
-            }
-        }
-        
-        print(f"✅ Issue {issue_iid} updated successfully")
-        return result
-    
     def _enrich_commit_with_issue(
         self,
         project_id: int,
@@ -397,7 +171,6 @@ class CommitManager:
         issue_iid = None
         
         # Try to extract issue ID from message or title
-        import re
         patterns = [r'#(\d+)', r'!(\d+)', r'\[(\d+)\]', r'Issue (\d+)']
         
         combined_text = f"{title} {message}"
@@ -461,25 +234,6 @@ class CommitManager:
             return 'high'
         
         return 'normal'
-    
-    def get_commits_by_date_range(
-        self,
-        project_id: int,
-        start_date: str,
-        end_date: str
-    ) -> List[Dict[str, Any]]:
-        """
-        Get commits from database for a date range
-        
-        Args:
-            project_id: Project ID
-            start_date: Start date
-            end_date: End date
-            
-        Returns:
-            List of commits
-        """
-        return self.db.get_commits_by_date_range(project_id, start_date, end_date)
 
 
 def clone_commit(project_id: int) -> int:
@@ -503,25 +257,6 @@ project_front_idm = 10
 project_front_stm = 13
 project_front_pda = 17
 project_front_qsm = 12
+
 if __name__ == "__main__":
     clone_commit(1)
-    # Example: Get commit summary
-    # summary = get_summary(
-    #     project_id=4,
-    #     start_date="2025-01-15",
-    #     end_date="2025-01-21"
-    # )
-    # print(summary)
-    
-    # Example: Get commits by issue
-    # commits = get_commits_by_issue(project_id=4, issue_iid=123)
-    # print(commits)
-    
-    # Example: Update issue by commit
-    # result = update_issue_by_commit(
-    #     project_id=4,
-    #     issue_iid=261,
-    #     author_name="username",
-    #     is_frontend=True
-    # )
-    # print(result)
