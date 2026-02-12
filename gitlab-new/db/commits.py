@@ -4,7 +4,7 @@ Handles operations for commits table (commit data)
 """
 
 import sqlite3
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
 class CommitsMixin:
@@ -24,7 +24,8 @@ class CommitsMixin:
                 message TEXT,
                 issue_iid INTEGER,
                 rate_message TEXT DEFAULT 'normal',
-                rate_count INTEGER DEFAULT 0
+                rate_count INTEGER DEFAULT 0,
+                operation TEXT DEFAULT '{}'
             )
         ''')
         self.connect().commit()
@@ -41,8 +42,8 @@ class CommitsMixin:
             INSERT OR REPLACE INTO commits (
                 id, short_id, project_id, title, author_name,
                 authored_date, committed_date, message, issue_iid,
-                rate_message, rate_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                rate_message, rate_count, operation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             commit_data.get('id'),
             commit_data.get('short_id'),
@@ -54,7 +55,8 @@ class CommitsMixin:
             commit_data.get('message'),
             commit_data.get('issue_iid'),
             commit_data.get('rate_message', 'normal'),
-            commit_data.get('rate_count', 0)
+            commit_data.get('rate_count', 0),
+            commit_data.get('operation', '{}')
         ))
         self.connect().commit()
     
@@ -72,8 +74,8 @@ class CommitsMixin:
                 INSERT OR REPLACE INTO commits (
                     id, short_id, project_id, title, author_name,
                     authored_date, committed_date, message, issue_iid,
-                    rate_message, rate_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    rate_message, rate_count, operation
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 commit.get('id'),
                 commit.get('short_id'),
@@ -85,7 +87,8 @@ class CommitsMixin:
                 commit.get('message'),
                 commit.get('issue_iid'),
                 commit.get('rate_message', 'normal'),
-                commit.get('rate_count', 0)
+                commit.get('rate_count', 0),
+                commit.get('operation', '{}')
             ))
         conn.commit()
     
@@ -167,6 +170,28 @@ class CommitsMixin:
         
         return summary
     
+    def get_last_commit_date(self, project_id: int) -> Optional[str]:
+        """
+        Get the last committed_date for a project
+        
+        Args:
+            project_id: Project ID
+            
+        Returns:
+            The most recent committed_date in ISO format, or None if no commits exist
+        """
+        cursor = self.connect().execute('''
+            SELECT committed_date FROM commits 
+            WHERE project_id = ?
+            ORDER BY committed_date DESC
+            LIMIT 1
+        ''', (project_id,))
+        
+        row = cursor.fetchone()
+        if row:
+            return row['committed_date']
+        return None
+    
     def _row_to_commit(self, row: sqlite3.Row) -> Dict[str, Any]:
         """Convert database row to commit dictionary"""
         return {
@@ -180,5 +205,6 @@ class CommitsMixin:
             'message': row['message'],
             'issue_iid': row['issue_iid'],
             'rate_message': row['rate_message'],
-            'rate_count': row['rate_count']
+            'rate_count': row['rate_count'],
+            'operation': row.get('operation', '{}')
         }

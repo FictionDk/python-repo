@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS commits (
     committed_date TEXT,
     message TEXT,
     issue_iid INTEGER,
+    operation TEXT,
     rate_message TEXT DEFAULT 'normal',
     rate_count INTEGER DEFAULT 0,
     PRIMARY KEY id
