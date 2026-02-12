@@ -15,3 +15,5 @@ project = gl.projects.get(4)
 i1 = project.issues.get(458)
 
 i2 = project.issues.get(822)
+
+c1 = project.commits.list(ref_name='dev')

@@ -100,8 +100,8 @@ class CommitManager:
             enriched_commit = self._enrich_commit_with_issue(project_id, commit)
             enriched_commits.append(enriched_commit)
         
-        # Insert commits into database (use end_date as snapshot date)
-        self.db.insert_commits_batch(project_id, enriched_commits, end_date)
+        # Insert commits into database
+        self.db.insert_commits_batch(project_id, enriched_commits)
         
         # Format response as per PLAN
         commits_response = [
@@ -113,7 +113,7 @@ class CommitManager:
                 "authored_date": commit.get('committed_date'),
                 "committed_date": commit.get('committed_date'),
                 "short_id": commit.get('short_id'),
-                "rate": commit.get('rate', 'normal')  # TODO: Implement rate calculation
+                "rate": commit.get('rate_message', 'normal')
             }
             for commit in enriched_commits
         ]
@@ -293,14 +293,15 @@ class CommitManager:
         except Exception:
             project_name = ""
         
-        # Add rate (TODO: Implement proper rate calculation logic)
-        rate = self._calculate_commit_rate(commit)
+        # Add rate_message (TODO: Implement proper rate calculation logic)
+        rate_message = self._calculate_commit_rate(commit)
         
         enriched = {
             **commit,
             'project_name': project_name,
             'issue_iid': issue_iid,
-            'rate': rate
+            'rate_message': rate_message,
+            'rate_count': 0
         }
         
         return enriched
@@ -430,22 +431,14 @@ def update_issue_by_commit(
     )
 
 
-if __name__ == "__main__":
-    # Example usage
-    import os
-    
-    # Set token for testing
-    if not os.getenv('GITLAB_PRIVATE_TOKEN'):
-        print("⚠️  Please set GITLAB_PRIVATE_TOKEN environment variable")
-        exit(1)
-    
+if __name__ == "__main__":    
     # Example: Get commit snapshot
-    # result = get_snapshot(
-    #     project_id=4,
-    #     start_date="2025-01-15",
-    #     end_date="2025-01-21"
-    # )
-    # print(result)
+    result = get_snapshot(
+        project_id=4,
+        start_date="2025-01-15",
+        end_date="2025-01-21"
+    )
+    print(result)
     
     # Example: Get commit summary
     # summary = get_summary(

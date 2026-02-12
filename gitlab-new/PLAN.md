@@ -110,7 +110,25 @@ CREATE TABLE issue_snapshot (
 
 ## 二、Commit管理 manage_commit.py
 
-### 2.1 获取 Commit 概要
+### 2.1 表结构
+```sql
+CREATE TABLE IF NOT EXISTS commits (
+    id TEXT,
+    short_id TEXT,
+    project_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    author_name TEXT NOT NULL,
+    authored_date TEXT,
+    committed_date TEXT,
+    message TEXT,
+    issue_iid INTEGER,
+    rate_message TEXT DEFAULT 'normal',
+    rate_count INTEGER DEFAULT 0,
+    PRIMARY KEY id
+)
+```
+
+### 2.2.1 同步 Commit
 
 **方法描述**：获取指定时间范围内 Commit 的统计概要数据，包括总数、需求数、修复数和关闭提交数。
 

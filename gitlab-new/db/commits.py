@@ -11,88 +11,81 @@ class CommitsMixin:
     """Mixin class for commits table operations"""
     
     def _create_commits_table(self):
-        """Create commits table"""
+        """Create commits table according to PLAN.md specification"""
         self.connect().execute('''
             CREATE TABLE IF NOT EXISTS commits (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
+                short_id TEXT,
                 project_id INTEGER NOT NULL,
-                iid TEXT,
                 title TEXT NOT NULL,
                 author_name TEXT NOT NULL,
-                author_email TEXT,
                 authored_date TEXT,
                 committed_date TEXT,
-                short_id TEXT,
                 message TEXT,
                 issue_iid INTEGER,
-                snapshot_date TEXT NOT NULL,
-                rate TEXT DEFAULT 'normal',
-                UNIQUE(project_id, short_id, snapshot_date)
+                rate_message TEXT DEFAULT 'normal',
+                rate_count INTEGER DEFAULT 0
             )
         ''')
         self.connect().commit()
     
-    def insert_commit(self, project_id: int, commit_data: Dict[str, Any], snapshot_date: str):
+    def insert_commit(self, project_id: int, commit_data: Dict[str, Any]):
         """
-        Insert a commit snapshot
+        Insert a commit
         
         Args:
             project_id: Project ID
             commit_data: Commit data from API
-            snapshot_date: Snapshot date
         """
         self.connect().execute('''
             INSERT OR REPLACE INTO commits (
-                project_id, iid, title, author_name, author_email,
-                authored_date, committed_date, short_id, message, 
-                issue_iid, snapshot_date, rate
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, short_id, project_id, title, author_name,
+                authored_date, committed_date, message, issue_iid,
+                rate_message, rate_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            project_id,
             commit_data.get('id'),
+            commit_data.get('short_id'),
+            project_id,
             commit_data.get('title'),
             commit_data.get('author_name'),
-            commit_data.get('author_email'),
             commit_data.get('authored_date'),
             commit_data.get('committed_date'),
-            commit_data.get('short_id'),
             commit_data.get('message'),
             commit_data.get('issue_iid'),
-            snapshot_date,
-            commit_data.get('rate', 'normal')
+            commit_data.get('rate_message', 'normal'),
+            commit_data.get('rate_count', 0)
         ))
         self.connect().commit()
     
-    def insert_commits_batch(self, project_id: int, commits: List[Dict[str, Any]], snapshot_date: str):
+    def insert_commits_batch(self, project_id: int, commits: List[Dict[str, Any]]):
         """
         Batch insert commits
         
         Args:
             project_id: Project ID
             commits: List of commit data
-            snapshot_date: Snapshot date
         """
         conn = self.connect()
         for commit in commits:
             conn.execute('''
                 INSERT OR REPLACE INTO commits (
-                    project_id, iid, title, author_name, author_email,
-                    authored_date, committed_date, short_id, message, 
-                    issue_iid, snapshot_date, rate
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, short_id, project_id, title, author_name,
+                    authored_date, committed_date, message, issue_iid,
+                    rate_message, rate_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                project_id,
                 commit.get('id'),
+                commit.get('short_id'),
+                project_id,
                 commit.get('title'),
                 commit.get('author_name'),
-                commit.get('author_email'),
                 commit.get('authored_date'),
                 commit.get('committed_date'),
-                commit.get('short_id'),
                 commit.get('message'),
                 commit.get('issue_iid'),
-                snapshot_date,
-                commit.get('rate', 'normal')
+                commit.get('rate_message', 'normal'),
+                commit.get('rate_count', 0)
             ))
         conn.commit()
     
@@ -103,19 +96,19 @@ class CommitsMixin:
         end_date: str
     ) -> List[Dict[str, Any]]:
         """
-        Get commits for a date range
+        Get commits for a date range based on committed_date
         
         Args:
             project_id: Project ID
-            start_date: Start date
-            end_date: End date
+            start_date: Start date (format: YYYY-MM-DD)
+            end_date: End date (format: YYYY-MM-DD)
             
         Returns:
             List of commits
         """
         cursor = self.connect().execute('''
             SELECT * FROM commits 
-            WHERE project_id = ? AND snapshot_date >= ? AND snapshot_date <= ?
+            WHERE project_id = ? AND committed_date >= ? AND committed_date <= ?
             ORDER BY committed_date DESC
         ''', (project_id, start_date, end_date))
         
@@ -178,16 +171,14 @@ class CommitsMixin:
         """Convert database row to commit dictionary"""
         return {
             'id': row['id'],
+            'short_id': row['short_id'],
             'project_id': row['project_id'],
-            'iid': row['iid'],
             'title': row['title'],
             'author_name': row['author_name'],
-            'author_email': row['author_email'],
             'authored_date': row['authored_date'],
             'committed_date': row['committed_date'],
-            'short_id': row['short_id'],
             'message': row['message'],
             'issue_iid': row['issue_iid'],
-            'snapshot_date': row['snapshot_date'],
-            'rate': row['rate']
+            'rate_message': row['rate_message'],
+            'rate_count': row['rate_count']
         }
