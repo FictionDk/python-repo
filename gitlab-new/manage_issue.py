@@ -39,8 +39,9 @@ class IssueManager:
     def clone_snapshot(self, project_id: int) -> Dict[str, Any]:
         """
         获取当前时间点项目 Issue 的详细信息快照，并存入本地 SQLite 数据库
-        分别更新或插入 issue_main、issue_snapshot
-        状态变更才插入 issue_snapshot，否则只是更新 snapshot_at
+        优化流程：
+        1. 从API中获取数据后直接插入或更新到issue_main
+        2. 拉取get_issue_children再更新issue_main的latest_status和parent_id，同时插入或更新issue_snapshot
         
         Args:
             project_id: 项目 ID
@@ -65,72 +66,84 @@ class IssueManager:
         # Create a mapping from iid to issue for easy lookup
         issues_by_iid = {issue.get('iid'): issue for issue in issues_data}
         
-        # Step 2: Enhance issues with parent_id from GraphQL API
+        # Step 2: Direct upsert into issue_main table (optimized - insert immediately after API fetch)
+        # Track how many are new vs updated
+        issues_before = len(self.db.get_all_issues_main(project_id))
+        self.db.upsert_issues_main_batch(project_id, issues_data)
+        issues_after = len(self.db.get_all_issues_main(project_id))
+        issue_main_new = max(0, issues_after - issues_before)
+        print(f"✅ Direct upsated {issue_total} issues to issue_main table (new: {issue_main_new})")
+        
+        # Step 3: Fetch GraphQL data to update parent_id, latest_status, milestone, and create snapshots
         from graphql.client import get_issue_children
-        print(f"🔍 Fetching parent-child relationships from GraphQL...")
+        print(f"🔍 Fetching parent-child relationships and status from GraphQL...")
+        
+        # Prepare updates for issue_main and snapshots for issue_snapshot
+        snapshots = []
         
         total_issues = len(issues_data)
         processed = 0
         
         for issue in issues_data:
             issue_id = issue.get('id')
+            issue_iid = issue.get('iid')
+            latest_status = ''
+            
             if issue_id:
                 try:
-                    # Extract numeric ID from GraphQL ID (e.g., "gid://gitlab/WorkItem/123")
+                    # Get children info from GraphQL (this also gives us the parent's main_status)
                     main_status, children = get_issue_children(issue_id)
+                    latest_status = main_status
                     
-                    # Update this issue's status for snapshot tracking
-                    issue['_main_status'] = main_status
-                    
-                    # Process children to set their parent_id
+                    # Collect child iids that need parent_id update
+                    child_iids_to_update = []
                     for child in children:
                         child_iid = child.get('iid')
                         if child_iid in issues_by_iid:
-                            # Update child's parent_id
-                            issues_by_iid[child_iid]['parent_id'] = issue.get('iid')
-                            # Update child's status
-                            issues_by_iid[child_iid]['_main_status'] = child.get('status')
-                            print(f"   ✓ Linked child {child_iid} to parent {issue.get('iid')}")
+                            child_iids_to_update.append(child_iid)
+                            # Prepare snapshot for child
+                            snapshots.append({
+                                'project_id': project_id,
+                                'iid': child_iid,
+                                'status': child.get('status', ''),
+                                'snapshot_at': snapshot_at
+                            })
+                    
+                    # Batch update all children's parent_id at once (outside the loop)
+                    if child_iids_to_update:
+                        self.db.batch_update_parent_id(project_id, issue_iid, child_iids_to_update)
+                        print(f"   ✓ Updated parent_id for {len(child_iids_to_update)} children -> {issue_iid}")
                 
                 except Exception as e:
-                    print(f"⚠️  Warning: Failed to get children for issue {issue.get('iid')}: {e}")
-                    issue['_main_status'] = ''
+                    print(f"⚠️  Warning: Failed to get children for issue {issue_iid}: {e}")
+                    latest_status = ''
+            
+            # Add snapshot for this issue
+            snapshots.append({
+                'project_id': project_id,
+                'iid': issue_iid,
+                'status': latest_status,
+                'snapshot_at': snapshot_at
+            })
+            
+            # Update this issue's latest_status in issue_main
+            self.db.update_issue_main_fields(
+                project_id, issue_iid,
+                {'latest_status': latest_status}
+            )
             
             # Display progress every 10 issues or on completion
             processed += 1
             if processed % 10 == 0 or processed == total_issues:
                 print(f"   📊 Progress: {processed}/{total_issues} issues processed ({processed/total_issues:.1%})")
         
-        # Step 3: Insert into legacy issues table for backward compatibility
-        self.db.insert_issues_batch(project_id, issues_data, snapshot_at)
-        
-        # Step 4: Upsert into issue_main table (latest state)
-        # Track how many are new vs updated
-        issues_before = len(self.db.get_all_issues_main(project_id))
-        self.db.upsert_issues_main_batch(project_id, issues_data)
-        issues_after = len(self.db.get_all_issues_main(project_id))
-        issue_main_new = max(0, issues_after - issues_before)
-        print(f"✅ Upserted {issue_total} issues to issue_main table (new: {issue_main_new})")
-        
-        # Step 5: Create snapshots with status change detection
-        # Now each issue has _main_status from GraphQL (either direct or from parent)
-        snapshots = []
-        for issue in issues_data:
-            status = issue.get('_main_status', '')
-            snapshots.append({
-                'project_id': project_id,
-                'iid': issue.get('iid'),
-                'status': status,
-                'snapshot_at': snapshot_at
-            })
-        
-        # Batch insert snapshots with status change detection
+        # Step 4: Batch insert snapshots with status change detection
         snapshot_stats = self.db.batch_insert_or_update_snapshots_with_status_change(snapshots)
         print(f"✅ Processed {len(snapshots)} snapshots to issue_snapshot table:")
         print(f"   - New statuses inserted: {snapshot_stats['inserted']}")
         print(f"   - Existing statuses updated: {snapshot_stats['updated']}")
         
-        # Step 6: Format response according to PLAN.md specification
+        # Step 5: Format response according to PLAN.md specification
         result = {
             "issue_total": issue_total,
             "issue_main_new": issue_main_new,
@@ -146,9 +159,9 @@ class IssueManager:
         return result
     
     def get_summary(
-        self, 
-        project_id: int, 
-        start_date: str, 
+        self,
+        project_id: int,
+        start_date: str,
         end_date: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -171,7 +184,7 @@ class IssueManager:
             end_dt = start_dt + timedelta(days=7)
             end_date = end_dt.strftime('%Y-%m-%d')
         
-        print(f"📊 Getting issue summary for project {project_id} from {start_date} to {end_date}...")
+        print(f"� Getting issue summary for project {project_id} from {start_date} to {end_date}...")
         
         # Use new two-table structure to get summary
         summary = self.db.get_issues_summary_from_snapshots(project_id, start_date, end_date)

@@ -418,7 +418,6 @@ def extract_child_task_details(children_nodes: List[Dict[str, Any]]) -> List[Dic
                         'webUrl': node.get('webUrl')
                     }
                     child_info['assignees'].append(assignee)
-            
             elif widget.get('type') == 'LABELS':
                 for node in widget.get('labels', {}).get('nodes', []):
                     label = {
@@ -430,7 +429,6 @@ def extract_child_task_details(children_nodes: List[Dict[str, Any]]) -> List[Dic
             elif widget.get('type') == 'STATUS':
                 status_info = widget.get('status', {})
                 child_info['status'] = status_info.get('name')
-        
         child_tasks.append(child_info)
     
     return child_tasks

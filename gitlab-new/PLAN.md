@@ -11,6 +11,8 @@ CREATE TABLE issue_main (
     title TEXT NOT NULL,
     description TEXT,
     state TEXT,
+    latest_status TEXT,    -- issue_snapshot.status 默认为空
+    milestone TEXT,        -- milestone.title
     labels TEXT,           -- JSON 数组，存储标签
     assignees TEXT,        -- JSON 数组，存储指派人
     created_at TEXT,
