@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS commits (
     id TEXT,
     short_id TEXT,
     project_id INTEGER NOT NULL,
+    project_name TEXT NOT NULL,
+    group_name TEXT NOT NULL,
     title TEXT NOT NULL,
     author_name TEXT NOT NULL,
     authored_date TEXT,

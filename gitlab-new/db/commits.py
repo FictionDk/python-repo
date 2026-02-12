@@ -17,6 +17,8 @@ class CommitsMixin:
                 id TEXT PRIMARY KEY,
                 short_id TEXT,
                 project_id INTEGER NOT NULL,
+                project_name TEXT,
+                group_name TEXT,
                 title TEXT NOT NULL,
                 author_name TEXT NOT NULL,
                 authored_date TEXT,
@@ -42,14 +44,17 @@ class CommitsMixin:
         for commit in commits:
             conn.execute('''
                 INSERT OR REPLACE INTO commits (
-                    id, short_id, project_id, title, author_name,
+                    id, short_id, project_id, project_name, group_name,
+                    title, author_name,
                     authored_date, committed_date, message, issue_iid,
                     rate_message, rate_count, operation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 commit.get('id'),
                 commit.get('short_id'),
                 project_id,
+                commit.get('project_name'),
+                commit.get('group_name'),
                 commit.get('title'),
                 commit.get('author_name'),
                 commit.get('authored_date'),
@@ -90,6 +95,8 @@ class CommitsMixin:
             'id': row['id'],
             'short_id': row['short_id'],
             'project_id': row['project_id'],
+            'project_name': row['project_name'],
+            'group_name': row['group_name'],
             'title': row['title'],
             'author_name': row['author_name'],
             'authored_date': row['authored_date'],

@@ -163,11 +163,17 @@ class CommitManager:
             Enriched commit data
         """
         message = commit.get('message', '')
+        project_name = ""
+        group_name = ""
+        
         try:
-            project = self.api_client.get_project(project_id)
-            project_name = project.name
+            project_info = self.api_client.get_project_info(project_id)
+            project_name = project_info.get('name', '')
+            group_name = project_info.get('group', '')
         except Exception:
             project_name = ""
+            group_name = ""
+        
         # Add rate_message (TODO: Implement proper rate calculation logic)
         rate_message = self._calculate_commit_rate(commit)
         # Parse operations from commit message
@@ -175,6 +181,7 @@ class CommitManager:
         enriched = {
             **commit,
             'project_name': project_name,
+            'group_name': group_name,
             'issue_iid': issue_iid,
             'rate_message': rate_message,
             'rate_count': 0,

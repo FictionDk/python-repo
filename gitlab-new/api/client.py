@@ -290,66 +290,16 @@ class GitLabClient:
         
         return [self._commit_to_dict(commit) for commit in commits]
     
-    def get_commit(self, project_id: int, commit_sha: str) -> Dict[str, Any]:
-        """
-        Get a specific commit
-        
-        Args:
-            project_id: Project ID
-            commit_sha: Commit SHA
-            
-        Returns:
-            Commit dictionary
-        """
-        project = self.get_project(project_id)
-        commit = project.commits.get(commit_sha)
-        return self._commit_to_dict(commit)
-    
-    def get_commits_by_issue(
-        self, 
-        project_id: int, 
-        issue_iid: int
-    ) -> List[Dict[str, Any]]:
-        """
-        Get commits associated with an issue
-        
-        Args:
-            project_id: Project ID
-            issue_iid: Issue IID (e.g., reference like #123)
-            
-        Returns:
-            List of commit dictionaries
-        """
-        project = self.get_project(project_id)
-        
-        # Get issue reference
-        issue = project.issues.get(issue_iid)
-        reference = issue.references.get('full', f"#{issue_iid}")
-        
-        # Get commits mentioning this issue
-        commits = project.commits.list(all=True)
-        
-        matching_commits = []
-        for commit in commits:
-            commit_dict = self._commit_to_dict(commit)
-            if reference in commit_dict.get('message', '') or reference in commit_dict.get('title', ''):
-                matching_commits.append(commit_dict)
-        
-        return matching_commits
-    
     def _commit_to_dict(self, commit) -> Dict[str, Any]:
-        """Convert GitLab commit object to dictionary"""
-        committer = commit.author_email if hasattr(commit, 'author_email') else commit.committer_email
-        authored_date = commit.authored_date if hasattr(commit, 'authored_date') else commit.created_at
-        
+        """Convert GitLab commit object to dictionary""" 
         return {
             'id': commit.id,
             'short_id': commit.short_id,
             'title': commit.title,
             'message': commit.message,
             'author_name': commit.author_name,
-            'author_email': getattr(commit, 'author_email', ''),
-            'committed_date': authored_date,
+            'author_email': commit.author_email,
+            'committed_date': commit.authored_date,
             'web_url': commit.web_url
         }
     
