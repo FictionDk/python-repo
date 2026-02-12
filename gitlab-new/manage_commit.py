@@ -4,11 +4,10 @@ Commit Management Module
 Provides functionality for cloning/syncing commits from GitLab to database
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import re
-import json
 
 from api.client import GitLabClient
 from db.database import get_database
@@ -52,29 +51,29 @@ class CommitManager:
         time_ago = datetime.now(ZoneInfo('Asia/Shanghai')) - timedelta(days=days)
         return time_ago.strftime('%Y-%m-%dT%H:%M:%S%z')
     
-    def _parse_commit_operations(self, commit_message: str) -> str:
+    def _parse_commit_operations(self, commit_message: str) -> tuple[str, int]:
         """
         解析提交消息中的操作信息
-        
         Args:
             commit_message: 提交消息
-        
         Returns:
-            JSON字符串，包含 'related' 和 'closed' 两个列表
-            如: '{"related": ["#485"], "closed": ["#490"]}'
+            related, 485
         """
-        operations = {'related': [], 'closed': []}
+        pattern = r'(\w+)#(\d+)'
+        match = re.search(pattern, commit_message)
+        if match:
+            return match.group(1), match.group(2)
+        else:
+            return '', None
         
-        # 匹配模式: related#485 或 closed#490
-        matches = re.findall(r'(related|closed)#(\d+)', commit_message, re.IGNORECASE)
-        
-        for action, issue_id in matches:
-            action_lower = action.lower()
-            if action_lower in operations:
-                operations[action_lower].append(f"#{issue_id}")
-        
-        # 转换为JSON字符串存储
-        return json.dumps(operations)
+    def clone_all_commit(self, filter=['dev-design','casdoor']):
+        projects = self.api_client.get_projects()
+        for p in projects:
+            if p.name in filter:
+                continue
+            else:
+                self.clone_commit(p.id)
+
     
     def clone_commit(self, project_id: int) -> int:
         """
@@ -113,12 +112,12 @@ class CommitManager:
         print(f"  Current time (UTC+8): {until_date}")
         
         # Convert UTC+8 dates to UTC for GitLab API
-        # Parse the ISO format dates to datetime objects
-        since_dt = datetime.fromisoformat(since_date.replace('+08:00', '+00:00').replace('+8:00', '+00:00'))
-        since_utc = since_dt.replace(tzinfo=ZoneInfo('UTC')).strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Parse the ISO format dates with timezone info
+        since_dt = datetime.fromisoformat(since_date)
+        since_utc = since_dt.astimezone(ZoneInfo('UTC')).strftime('%Y-%m-%dT%H:%M:%SZ')
         
-        until_dt = datetime.fromisoformat(until_date.replace('+08:00', '+00:00').replace('+8:00', '+00:00'))
-        until_utc = until_dt.replace(tzinfo=ZoneInfo('UTC')).strftime('%Y-%m-%dT%H:%M:%SZ')
+        until_dt = datetime.fromisoformat(until_date)
+        until_utc = until_dt.astimezone(ZoneInfo('UTC')).strftime('%Y-%m-%dT%H:%M:%SZ')
         
         # Step 4: Fetch commits from GitLab API
         print(f"  Fetching commits from {since_utc}/{since_dt} to {until_utc}/{until_dt}...")
@@ -163,37 +162,16 @@ class CommitManager:
         Returns:
             Enriched commit data
         """
-        # Simple issue reference extraction from commit message
-        # Pattern: #123 or !123
         message = commit.get('message', '')
-        title = commit.get('title', '')
-        
-        issue_iid = None
-        
-        # Try to extract issue ID from message or title
-        patterns = [r'#(\d+)', r'!(\d+)', r'\[(\d+)\]', r'Issue (\d+)']
-        
-        combined_text = f"{title} {message}"
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, combined_text, re.IGNORECASE)
-            if matches:
-                issue_iid = int(matches[0])
-                break
-        
-        # Get project name
         try:
             project = self.api_client.get_project(project_id)
             project_name = project.name
         except Exception:
             project_name = ""
-        
         # Add rate_message (TODO: Implement proper rate calculation logic)
         rate_message = self._calculate_commit_rate(commit)
-        
         # Parse operations from commit message
-        operation = self._parse_commit_operations(message)
-        
+        operation, issue_iid = self._parse_commit_operations(message)
         enriched = {
             **commit,
             'project_name': project_name,
@@ -202,41 +180,12 @@ class CommitManager:
             'rate_count': 0,
             'operation': operation
         }
-        
         return enriched
     
     def _calculate_commit_rate(self, commit: Dict[str, Any]) -> str:
-        """
-        Calculate commit rate/priority
-        
-        TODO: Implement proper rate calculation based on:
-        - Number of files changed
-        - Lines added/removed
-        - Commit message length
-        - Keywords indicating importance
-        
-        Args:
-            commit: Commit data
-            
-        Returns:
-            Rate string: 'high', 'medium', or 'normal'
-        """
-        # Basic placeholder implementation
-        title = commit.get('title', '').lower()
-        message = commit.get('message', '').lower()
-        
-        # Check for high-priority keywords
-        high_priority_keywords = ['critical', 'urgent', 'fix', 'bug', 'security', 'hotfix', '紧急', '严重']
-        
-        combined_text = f"{title} {message}"
-        
-        if any(keyword in combined_text for keyword in high_priority_keywords):
-            return 'high'
-        
         return 'normal'
 
-
-def clone_commit(project_id: int) -> int:
+def clone_all_commit(project_id: int) -> int:
     """
     Convenience function: Clone/sync commits from GitLab to database
     
@@ -247,16 +196,10 @@ def clone_commit(project_id: int) -> int:
         Number of newly inserted commits
     """
     manager = CommitManager()
-    return manager.clone_commit(project_id)
-
-project_bosx = 1
-project_front_main = 6
-project_front_dmm = 8
-project_front_bcm = 9
-project_front_idm = 10
-project_front_stm = 13
-project_front_pda = 17
-project_front_qsm = 12
+    if project_id == None:
+        manager.clone_all_commit()
+    else:
+        manager.clone_commit(project_id)
 
 if __name__ == "__main__":
-    clone_commit(1)
+    clone_all_commit(None)

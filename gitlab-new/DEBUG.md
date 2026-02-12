@@ -11,6 +11,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 gl = gitlab.Gitlab(base_url, private_token=token, ssl_verify=False)
 
 project = gl.projects.get(4)
+p1 = gl.projects.get(1)
+p1.namespace.get('name')
 
 i1 = project.issues.get(458)
 

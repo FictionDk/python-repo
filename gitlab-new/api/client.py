@@ -37,6 +37,9 @@ class GitLabClient:
         """
         return self.gl.projects.get(project_id)
     
+    def get_projects(self):
+        return self.gl.projects.list(all=True)
+    
     # ================== Issue Operations ==================
     
     def get_issues(self, project_id: int, all_issues: bool = True) -> List[Dict[str, Any]]:
@@ -426,5 +429,6 @@ class GitLabClient:
             'default_branch': project.default_branch,
             'web_url': project.web_url,
             'created_at': project.created_at,
-            'last_activity_at': project.last_activity_at
+            'last_activity_at': project.last_activity_at,
+            'group':project.namespace.get('name')
         }

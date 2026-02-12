@@ -22,42 +22,12 @@ class CommitsMixin:
                 authored_date TEXT,
                 committed_date TEXT,
                 message TEXT,
+                operation TEXT DEFAULT '',
                 issue_iid INTEGER,
                 rate_message TEXT DEFAULT 'normal',
-                rate_count INTEGER DEFAULT 0,
-                operation TEXT DEFAULT '{}'
+                rate_count INTEGER DEFAULT 0
             )
         ''')
-        self.connect().commit()
-    
-    def insert_commit(self, project_id: int, commit_data: Dict[str, Any]):
-        """
-        Insert a commit
-        
-        Args:
-            project_id: Project ID
-            commit_data: Commit data from API
-        """
-        self.connect().execute('''
-            INSERT OR REPLACE INTO commits (
-                id, short_id, project_id, title, author_name,
-                authored_date, committed_date, message, issue_iid,
-                rate_message, rate_count, operation
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            commit_data.get('id'),
-            commit_data.get('short_id'),
-            project_id,
-            commit_data.get('title'),
-            commit_data.get('author_name'),
-            commit_data.get('authored_date'),
-            commit_data.get('committed_date'),
-            commit_data.get('message'),
-            commit_data.get('issue_iid'),
-            commit_data.get('rate_message', 'normal'),
-            commit_data.get('rate_count', 0),
-            commit_data.get('operation', '{}')
-        ))
         self.connect().commit()
     
     def insert_commits_batch(self, project_id: int, commits: List[Dict[str, Any]]):
@@ -88,7 +58,7 @@ class CommitsMixin:
                 commit.get('issue_iid'),
                 commit.get('rate_message', 'normal'),
                 commit.get('rate_count', 0),
-                commit.get('operation', '{}')
+                commit.get('operation', '')
             ))
         conn.commit()
     
