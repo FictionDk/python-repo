@@ -5,10 +5,13 @@ Provides functionality for:
 1. Clone issue snapshots to SQLite database
 2. Get issue summary statistics
 3. Update issue assignees and labels
+4. Export issues to CSV with filters
 """
 
+import csv
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+import os
 
 from api.client import GitLabClient
 from db.database import get_database
@@ -259,24 +262,104 @@ class IssueManager:
         print(f"✅ Issue {issue_iid} updated successfully")
         return result
     
-    def get_issues_by_date_range(
+    
+    def export_issues_to_csv(
         self,
         project_id: int,
-        start_date: str,
-        end_date: str
-    ) -> List[Dict[str, Any]]:
+        output_file: str,
+        title_prefixes: Optional[List[str]] = None,
+        status_filters: Optional[List[str]] = None,
+        columns_to_export: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """
-        Get issues from database for a date range
+        Export issues from issue_main table to CSV with filters
         
         Args:
             project_id: Project ID
-            start_date: Start date
-            end_date: End date
+            output_file: Path to output CSV file
+            title_prefixes: List of title prefixes to filter (e.g., ['STM', 'BCM', 'IDM'])
+            status_filters: List of latest_status values to include
+            columns_to_export: List of column names to export (if None, export all columns)
             
         Returns:
-            List of issues
+            Dictionary containing:
+            - success: True if export succeeded
+            - total_issues: Total number of issues matching filters
+            - output_file: Path to the exported CSV file
         """
-        return self.db.get_issues_by_date_range(project_id, start_date, end_date)
+        print(f"📤 Exporting issues to CSV for project {project_id}...")
+        
+        if output_file is None:
+            output_file = f"exports/worklist-{datetime.now().strftime('%Y-%m-%d')}.csv"
+
+        # Validate output directory exists
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"📁 Created output directory: {output_dir}")
+        
+        # Query issues with filters
+        issues = self.db.get_issues_with_filters(
+            project_id=project_id,
+            title_prefixes=title_prefixes,
+            status_filters=status_filters,
+            columns=columns_to_export
+        )
+        
+        if not issues:
+            print(f"⚠️  No issues found matching the filters")
+            return {
+                "success": True,
+                "total_issues": 0,
+                "output_file": output_file
+            }
+        
+        # Determine columns to write
+        if columns_to_export:
+            # Filter to only columns that exist in the data
+            available_columns = set(issues[0].keys())
+            export_columns = [col for col in columns_to_export if col in available_columns]
+        else:
+            export_columns = list(issues[0].keys())
+        
+        print(f"📊 Found {len(issues)} issues matching filters")
+        print(f"📝 Exporting {len(export_columns)} columns: {', '.join(export_columns)}")
+        
+        # Write to CSV
+        try:
+            with open(output_file, 'w', newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=export_columns, extrasaction='ignore')
+                
+                # Write header
+                writer.writeheader()
+                
+                # Write data rows
+                for issue in issues:
+                    row = {}
+                    for col in export_columns:
+                        value = issue.get(col, '')
+                        # Convert list fields (labels, assignees) to comma-separated strings
+                        if isinstance(value, list):
+                            row[col] = ', '.join(str(v) for v in value)
+                        else:
+                            row[col] = value
+                    writer.writerow(row)
+            
+            print(f"✅ Successfully exported {len(issues)} issues to {output_file}")
+            
+            return {
+                "success": True,
+                "total_issues": len(issues),
+                "output_file": output_file
+            }
+        except Exception as e:
+            print(f"❌ Error exporting to CSV: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "total_issues": 0,
+                "output_file": output_file
+            }
 
 
 # Convenience functions
@@ -326,12 +409,41 @@ def update_issue(
     manager = IssueManager()
     return manager.update_issue(project_id, issue_iid, assignees, labels)
 
+def export_issues_to_csv(
+    project_id: int,
+    output_file: str,
+    title_prefixes: Optional[List[str]] = None,
+    status_filters: Optional[List[str]] = None,
+    columns_to_export: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Convenience function: Export issues to CSV with filters
+    
+    Args:
+        project_id: Project ID
+        output_file: Path to output CSV file
+        title_prefixes: List of title prefixes to filter (e.g., ['STM', 'BCM', 'IDM'])
+        status_filters: List of latest_status values to include
+        columns_to_export: List of column names to export (if None, export all columns)
+        
+    Returns:
+        Dictionary containing export result with total_issues and output_file path
+    """
+    manager = IssueManager()
+    return manager.export_issues_to_csv(
+        project_id,
+        output_file,
+        title_prefixes,
+        status_filters,
+        columns_to_export
+    )
+
 
 if __name__ == "__main__":
 
     # Example: Clone snapshot
-    result = clone_snapshot(project_id=4)
-    print(result)
+    # result = clone_snapshot(project_id=4)
+    # print(result)
     
     # Example: Get summary
     # summary = get_summary(project_id=4, start_date="2025-01-15")
@@ -345,3 +457,38 @@ if __name__ == "__main__":
     #     labels=["bug", "high-priority"]
     # )
     # print(result)
+    
+    # Example: Export all issues to CSV (all columns)
+    # result = export_issues_to_csv(
+    #     project_id=4,
+    #     output_file="exports/all_issues.csv"
+    # )
+    # print(result)
+    
+    # Example: Export issues with specific title prefixes
+    # result = export_issues_to_csv(
+    #     project_id=4,
+    #     output_file="exports/stm_bcm_issues.csv",
+    #     title_prefixes=["STM", "BCM"]
+    # )
+    # print(result)
+    
+    # Example: Export issues with multiple title prefixes and status filters
+    # result = export_issues_to_csv(
+    #     project_id=4,
+    #     output_file="exports/filtered_issues.csv",
+    #     title_prefixes=["STM", "BCM", "IDM", "QSM", "DMM", "DOP", "QMS", "CYLIMS", "D3M"],
+    #     status_filters=["Open", "In Progress", "To Do"]
+    # )
+    # print(result)
+    
+    # Example: Export issues with specific columns only
+    pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M']
+    result = export_issues_to_csv(
+        project_id=4,
+        output_file=None,
+        title_prefixes=pre_filter,
+        status_filters=["待开发","开发中","待修复","测试中","已完成"],
+        columns_to_export=["iid", "title", "latest_status", "assignees", "milestone"]
+    )
+    print(result)

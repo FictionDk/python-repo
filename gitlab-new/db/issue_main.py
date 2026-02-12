@@ -212,3 +212,78 @@ class IssueMainMixin:
         '''
         self.connect().execute(query, [parent_iid, project_id] + child_iids)
         self.connect().commit()
+    
+    def get_issues_with_filters(
+        self,
+        project_id: int,
+        title_prefixes: Optional[List[str]] = None,
+        status_filters: Optional[List[str]] = None,
+        columns: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Query issues from issue_main table with filters
+        
+        Args:
+            project_id: Project ID
+            title_prefixes: List of title prefixes to filter (e.g., ['STM', 'BCM'])
+            status_filters: List of latest_status values to include
+            columns: List of column names to select (if None, select all)
+            
+        Returns:
+            List of issues matching the filters
+        """
+        # Build SELECT clause
+        if columns:
+            # Validate columns
+            valid_columns = [
+                'project_id', 'iid', 'parent_id', 'title', 'description',
+                'state', 'labels', 'assignees', 'created_at', 'updated_at',
+                'issue_id', 'latest_status', 'milestone'
+            ]
+            valid_columns_select = [col for col in columns if col in valid_columns]
+            if not valid_columns_select:
+                # If no valid columns, select all
+                select_clause = '*'
+            else:
+                select_clause = ', '.join(valid_columns_select)
+        else:
+            select_clause = '*'
+        
+        # Build WHERE clause
+        where_conditions = ['project_id = ?']
+        params = [project_id]
+        
+        if title_prefixes:
+            # Create conditions for each prefix using SUBSTR(title, 1, 3)
+            prefix_conditions = []
+            for prefix in title_prefixes:
+                prefix_conditions.append('SUBSTR(title, 1, 3) = ?')
+                params.append(prefix)
+            where_conditions.append(f"({' OR '.join(prefix_conditions)})")
+        
+        if status_filters:
+            placeholders = ','.join(['?' for _ in status_filters])
+            where_conditions.append(f'latest_status IN ({placeholders})')
+            params.extend(status_filters)
+        
+        where_clause = ' AND '.join(where_conditions)
+        
+        # Execute query
+        query = f'SELECT {select_clause} FROM issue_main WHERE {where_clause} ORDER BY iid'
+        cursor = self.connect().execute(query, params)
+        rows = cursor.fetchall()
+        
+        # Convert rows to dictionaries
+        result = []
+        for row in rows:
+            issue_dict = {}
+            for key in row.keys():
+                value = row[key]
+                # Parse JSON fields
+                if key in ['labels', 'assignees'] and value:
+                    issue_dict[key] = json.loads(value) if isinstance(value, str) else value
+                else:
+                    issue_dict[key] = value
+            result.append(issue_dict)
+        
+        return result
