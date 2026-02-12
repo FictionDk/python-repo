@@ -250,7 +250,8 @@ class GitLabClient:
             ],
             'created_at': issue.created_at,
             'updated_at': issue.updated_at,
-            'web_url': issue.web_url
+            'web_url': issue.web_url,
+            'milestone': dict(issue.milestone) if issue.milestone else {}
         }
     
     # ================== Commit Operations ==================

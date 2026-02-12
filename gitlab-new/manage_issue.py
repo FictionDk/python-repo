@@ -94,26 +94,12 @@ class IssueManager:
                     # Get children info from GraphQL (this also gives us the parent's main_status)
                     main_status, children = get_issue_children(issue_id)
                     latest_status = main_status
-                    
-                    # Collect child iids that need parent_id update
-                    child_iids_to_update = []
                     for child in children:
                         child_iid = child.get('iid')
-                        if child_iid in issues_by_iid:
-                            child_iids_to_update.append(child_iid)
-                            # Prepare snapshot for child
-                            snapshots.append({
-                                'project_id': project_id,
-                                'iid': child_iid,
-                                'status': child.get('status', ''),
-                                'snapshot_at': snapshot_at
-                            })
-                    
-                    # Batch update all children's parent_id at once (outside the loop)
-                    if child_iids_to_update:
-                        self.db.batch_update_parent_id(project_id, issue_iid, child_iids_to_update)
-                        print(f"   ✓ Updated parent_id for {len(child_iids_to_update)} children -> {issue_iid}")
-                
+                        self.db.update_issue_main_fields(
+                            project_id, child_iid, 
+                            {'parent_id': issue_iid}
+                        )
                 except Exception as e:
                     print(f"⚠️  Warning: Failed to get children for issue {issue_iid}: {e}")
                     latest_status = ''

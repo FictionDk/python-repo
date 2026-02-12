@@ -91,8 +91,9 @@ class IssueMainMixin:
                 issue.get('updated_at'),
                 issue.get('id'),
                 issue.get('latest_status', ''),
-                issue.get('milestone', dict(issue.get('milestone',{'title':''})).get('title',''))
+                issue.get('milestone').get('title','')
             ))
+            break
         conn.commit()
     
     def get_issue_main(self, project_id: int, iid: int) -> Optional[Dict[str, Any]]:
