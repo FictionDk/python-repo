@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS commits (
     authored_date TEXT,
     committed_date TEXT,
     message TEXT,
-    issue_iid INTEGER,
+    issue_iid TEXT,  -- 支持多个 issue_iid，使用逗号分隔，例如: "123" 或 "123,456,789"
     operation TEXT,
     rate_message TEXT DEFAULT 'normal',
     rate_count INTEGER DEFAULT 0,
@@ -131,51 +131,36 @@ CREATE TABLE IF NOT EXISTS commits (
 )
 ```
 
-### 2.2.1 同步 Commit
+### 2.2.1 同步 Commit 
+1. 方法描述：根据当前数据库最近同步时间，从远程获取最新数据更新到commits中
+2. 方法名：clone_commit
+3. 入参：project_id项目 ID
 
-**方法描述**：获取指定时间范围内 Commit 的统计概要数据，包括总数、需求数、修复数和关闭提交数。
-
-**方法名**：`get_summary`
-
-**入参**：
-- `project_id`: 项目 ID (str/int)
-- `start_date`: 开始日期 (格式: YYYY-MM-DD)
-- `end_date`: 结束日期 (格式: YYYY-MM-DD)
-
-**返回**：
+### 2.2.2 获取Commit概要 TODO
+1. 方法描述：获取指定项目列表（多条）、指定时间范围内Commit统计概要，包括总数、每个需求的处理情况
+2. 方法名：get_summary
+3. 入参：
+  - `project_id_arr`: 项目ID List
+  - `start_date`: 开始日期 (格式: YYYY-MM-DD)
+  - `end_date`: 结束日期 (格式: YYYY-MM-DD)
+4. 返回：
 ```json
 {
-  "total": 200,
-  "requirements": 80,
-  "fixes": 60,
-  "closed": 60
-}
-```
-
-### 2.2 获取 Commit 快照
-
-**方法描述**：获取指定时间范围内所有 Commit 的详细信息快照。
-
-**方法名**：`get_snapshot`
-
-**入参**：
-- `project_id`: 项目 ID (str/int)
-- `start_date`: 开始日期 (格式: YYYY-MM-DD)
-- `end_date`: 结束日期 (格式: YYYY-MM-DD)
-
-**返回**：
-```json
-{
-  "commits": [
+  "total": 99,
+  "issue_list": [
     {
-      "title": "提交标题",
-      "project": "项目名",
-      "iid": 456,
-      "author_name": "作者名",
-      "authored_date": "2025-01-15T10:30:00+8:00",
-      "committed_date": "2025-01-15T10:35:00+8:00",
-      "short_id": "abc1234",
-      "rate": "high" // TODO
+      "iid": 198,
+      "related_group_arr": ["front"],
+      "closed_group_arr": ["front", "server"],
+      "author_arr": ["zyh", "hek"],
+      "count": 2
+    },
+    {
+      "iid": 199,
+      "related_group_arr": ["front"],
+      "closed_group_arr": ["server"],
+      "author_arr": ["zyh", "hek"],
+      "count": 4
     }
   ]
 }

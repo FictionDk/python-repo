@@ -25,7 +25,7 @@ class CommitsMixin:
                 committed_date TEXT,
                 message TEXT,
                 operation TEXT DEFAULT '',
-                issue_iid INTEGER,
+                issue_iid TEXT,
                 rate_message TEXT DEFAULT 'normal',
                 rate_count INTEGER DEFAULT 0
             )
@@ -107,3 +107,47 @@ class CommitsMixin:
             'rate_count': row['rate_count'],
             'operation': row.get('operation', '{}')
         }
+    
+    def get_commits_summary(
+        self,
+        project_id_arr: List[int],
+        start_date: str,
+        end_date: str
+    ) -> List[sqlite3.Row]:
+        """
+        Get commits summary by issue within specified project list and date range
+        
+        Args:
+            project_id_arr: List of project IDs
+            start_date: Start date in format YYYY-MM-DD
+            end_date: End date in format YYYY-MM-DD
+            
+        Returns:
+            List of database rows containing commit information
+        """
+        if not project_id_arr:
+            return []
+        
+        # Convert dates to ISO format with time suffix for comparison
+        start_datetime = f"{start_date}T00:00:00+08:00"
+        end_datetime = f"{end_date}T23:59:59+08:00"
+        
+        # Build query for projects
+        placeholders = ','.join('?' * len(project_id_arr))
+        
+        query = f'''
+            SELECT 
+                id, short_id, project_id, project_name, group_name,
+                title, author_name, authored_date, committed_date,
+                message, issue_iid, operation
+            FROM commits
+            WHERE project_id IN ({placeholders})
+                AND committed_date >= ?
+                AND committed_date <= ?
+            ORDER BY committed_date
+        '''
+        
+        params = project_id_arr + [start_datetime, end_datetime]
+        cursor = self.connect().execute(query, params)
+        
+        return cursor.fetchall()

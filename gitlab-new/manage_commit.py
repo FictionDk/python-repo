@@ -51,18 +51,30 @@ class CommitManager:
         time_ago = datetime.now(ZoneInfo('Asia/Shanghai')) - timedelta(days=days)
         return time_ago.strftime('%Y-%m-%dT%H:%M:%S%z')
     
-    def _parse_commit_operations(self, commit_message: str) -> tuple[str, int]:
+    def _parse_commit_operations(self, commit_message: str) -> tuple[str, Optional[str]]:
         """
         解析提交消息中的操作信息
+        支持多个 issue_iid，使用逗号分隔
+        
         Args:
             commit_message: 提交消息
+            
         Returns:
-            related, 485
+            (operation, issue_iids) - issue_iids 可以是 None 或 "123,456,789" 格式
+            
+        Examples:
+            "related#123" -> ('related', '123')
+            "related#123,456" -> ('related', '123,456')
+            "fix#789,1011,1213" -> ('fix', '789,1011,1213')
         """
-        pattern = r'(\w+)#(\d+)'
+        # 匹配操作符和后面的数字序列（支持逗号分隔）
+        pattern = r'(\w+)#([\d,]+)'
         match = re.search(pattern, commit_message)
         if match:
-            return match.group(1), match.group(2)
+            operation = match.group(1)
+            # 确保数字序列格式正确（移除可能的重复逗号等）
+            issue_iids = ','.join(iid.strip() for iid in match.group(2).split(',') if iid.strip())
+            return operation, issue_iids
         else:
             return '', None
         
@@ -191,6 +203,104 @@ class CommitManager:
     
     def _calculate_commit_rate(self, commit: Dict[str, Any]) -> str:
         return 'normal'
+    
+    def get_summary(
+        self,
+        project_id_arr: list[int],
+        start_date: str,
+        end_date: str
+    ) -> Dict[str, Any]:
+        """
+        Get commits summary by issue within specified project list and date range
+        
+        Args:
+            project_id_arr: List of project IDs
+            start_date: Start date in format YYYY-MM-DD
+            end_date: End date in format YYYY-MM-DD
+            
+        Returns:
+            Dictionary containing total commits count and issue summary list
+            Format:
+            {
+                "total": 99,
+                "issue_list": [
+                    {
+                        "iid": 198,
+                        "related_group_arr": ["front"],
+                        "closed_group_arr": ["front", "server"],
+                        "author_arr": ["zyh", "hek"],
+                        "count": 2
+                    }
+                ]
+            }
+        """
+        # Get commits from database
+        rows = self.db.get_commits_summary(project_id_arr, start_date, end_date)
+        
+        # Initialize result structure
+        issue_stats: Dict[int, Dict[str, Any]] = {}
+        
+        for row in rows:
+            commit = {
+                'group_name': row['group_name'],
+                'author_name': row['author_name'],
+                'issue_iid': row['issue_iid'],
+                'operation': row['operation']
+            }
+            
+            # Handle multiple issue_iids (comma-separated)
+            issue_iids = []
+            if commit['issue_iid']:
+                issue_iids = [iid.strip() for iid in commit['issue_iid'].split(',') if iid.strip()]
+            
+            # If no issue_iid, skip this commit
+            if not issue_iids:
+                continue
+            
+            # Process each issue_id
+            for iid_str in issue_iids:
+                try:
+                    iid = int(iid_str)
+                except (ValueError, TypeError):
+                    continue
+                
+                # Initialize issue stats if not exists
+                if iid not in issue_stats:
+                    issue_stats[iid] = {
+                        'iid': iid,
+                        'related_group_arr': [],
+                        'closed_group_arr': [],
+                        'author_arr': [],
+                        'count': 0
+                    }
+                
+                # Update statistics
+                stats = issue_stats[iid]
+                stats['count'] += 1
+                
+                # Add group to related_group_arr (deduplicate later)
+                if commit['group_name'] and commit['group_name'] not in stats['related_group_arr']:
+                    stats['related_group_arr'].append(commit['group_name'])
+                
+                # Add group to closed_group_arr if operation is 'closed'
+                if commit['operation'] and commit['operation'].lower() == 'closed':
+                    if commit['group_name'] and commit['group_name'] not in stats['closed_group_arr']:
+                        stats['closed_group_arr'].append(commit['group_name'])
+                
+                # Add author (deduplicate later)
+                if commit['author_name'] and commit['author_name'] not in stats['author_arr']:
+                    stats['author_arr'].append(commit['author_name'])
+        
+        # Convert issue_stats dict to list
+        issue_list = list(issue_stats.values())
+        
+        # Build result
+        result = {
+            'total': len(rows),
+            'issue_list': issue_list
+        }
+        
+        return result
 
 def clone_all_commit(project_id: int) -> int:
     manager = CommitManager()
