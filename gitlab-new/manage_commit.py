@@ -193,15 +193,6 @@ class CommitManager:
         return 'normal'
 
 def clone_all_commit(project_id: int) -> int:
-    """
-    Convenience function: Clone/sync commits from GitLab to database
-    
-    Args:
-        project_id: Project ID
-        
-    Returns:
-        Number of newly inserted commits
-    """
     manager = CommitManager()
     if project_id == None:
         manager.clone_all_commit()

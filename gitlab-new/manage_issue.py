@@ -440,55 +440,19 @@ def export_issues_to_csv(
 
 
 if __name__ == "__main__":
-
     # Example: Clone snapshot
     # result = clone_snapshot(project_id=4)
     # print(result)
-    
-    # Example: Get summary
-    # summary = get_summary(project_id=4, start_date="2025-01-15")
-    # print(summary)
-    
-    # Example: Update issue
-    # result = update_issue(
-    #     project_id=4,
-    #     issue_iid=261,
-    #     assignees=["username1", "username2"],
-    #     labels=["bug", "high-priority"]
-    # )
-    # print(result)
-    
-    # Example: Export all issues to CSV (all columns)
-    # result = export_issues_to_csv(
-    #     project_id=4,
-    #     output_file="exports/all_issues.csv"
-    # )
-    # print(result)
-    
-    # Example: Export issues with specific title prefixes
-    # result = export_issues_to_csv(
-    #     project_id=4,
-    #     output_file="exports/stm_bcm_issues.csv",
-    #     title_prefixes=["STM", "BCM"]
-    # )
-    # print(result)
-    
-    # Example: Export issues with multiple title prefixes and status filters
-    # result = export_issues_to_csv(
-    #     project_id=4,
-    #     output_file="exports/filtered_issues.csv",
-    #     title_prefixes=["STM", "BCM", "IDM", "QSM", "DMM", "DOP", "QMS", "CYLIMS", "D3M"],
-    #     status_filters=["Open", "In Progress", "To Do"]
-    # )
-    # print(result)
-    
+
     # Example: Export issues with specific columns only
     pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M']
+    status_filter = ["待开发","开发中","待修复","测试中","已完成"]
+    table_to_export = ["iid", "title", "latest_status", "assignees", "milestone"]
     result = export_issues_to_csv(
         project_id=4,
         output_file=None,
         title_prefixes=pre_filter,
-        status_filters=["待开发","开发中","待修复","测试中","已完成"],
-        columns_to_export=["iid", "title", "latest_status", "assignees", "milestone"]
+        status_filters=status_filter,
+        columns_to_export=table_to_export
     )
     print(result)
