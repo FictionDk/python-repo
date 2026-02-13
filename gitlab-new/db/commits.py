@@ -27,7 +27,8 @@ class CommitsMixin:
                 operation TEXT DEFAULT '',
                 issue_iid TEXT,
                 rate_message TEXT DEFAULT 'normal',
-                rate_count INTEGER DEFAULT 0
+                rate_count INTEGER DEFAULT 0,
+                issue_synced INTEGER DEFAULT 0
             )
         ''')
         self.connect().commit()
@@ -47,8 +48,8 @@ class CommitsMixin:
                     id, short_id, project_id, project_name, group_name,
                     title, author_name,
                     authored_date, committed_date, message, issue_iid,
-                    rate_message, rate_count, operation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    rate_message, rate_count, operation, issue_synced
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 commit.get('id'),
                 commit.get('short_id'),
@@ -63,7 +64,8 @@ class CommitsMixin:
                 commit.get('issue_iid'),
                 commit.get('rate_message', 'normal'),
                 commit.get('rate_count', 0),
-                commit.get('operation', '')
+                commit.get('operation', ''),
+                commit.get('issue_synced', 0)
             ))
         conn.commit()
     
@@ -105,7 +107,8 @@ class CommitsMixin:
             'issue_iid': row['issue_iid'],
             'rate_message': row['rate_message'],
             'rate_count': row['rate_count'],
-            'operation': row.get('operation', '{}')
+            'operation': row.get('operation', ''),
+            'issue_synced': row.get('issue_synced', 0)
         }
     
     def get_commits_summary(
@@ -150,4 +153,78 @@ class CommitsMixin:
         params = project_id_arr + [start_datetime, end_datetime]
         cursor = self.connect().execute(query, params)
         
+        return cursor.fetchall()
+    
+    def mark_issue_synced(self, commit_ids: List[str]) -> int:
+        """
+        Mark commits as having their issue synchronization completed
+        
+        Args:
+            commit_ids: List of commit IDs to mark as synced
+            
+        Returns:
+            Number of commits marked as synced
+        """
+        if not commit_ids:
+            return 0
+        
+        placeholders = ','.join('?' * len(commit_ids))
+        query = f'''
+            UPDATE commits
+            SET issue_synced = 1
+            WHERE id IN ({placeholders})
+        '''
+        
+        cursor = self.connect().execute(query, commit_ids)
+        self.connect().commit()
+        
+        return cursor.rowcount
+    
+    def get_commits_needing_sync(
+        self,
+        project_id: Optional[int] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> List[sqlite3.Row]:
+        """
+        Get commits that still need issue synchronization
+        
+        A commit needs sync if:
+        - issue_synced = 0 (not yet synced)
+        - issue_iid is not NULL and not empty (has associated issues)
+        
+        Args:
+            project_id: Optional project ID to filter by
+            start_date: Optional start date in format YYYY-MM-DD
+            end_date: Optional end date in format YYYY-MM-DD
+            
+        Returns:
+            List of database rows containing commit information
+        """
+        query = '''
+            SELECT 
+                id, short_id, project_id, project_name, group_name,
+                title, author_name, authored_date, committed_date,
+                message, issue_iid, operation
+            FROM commits
+            WHERE issue_synced = 0
+                AND issue_iid IS NOT NULL
+                AND issue_iid != ''
+        '''
+        
+        params = []
+        
+        if project_id is not None:
+            query += ' AND project_id = ?'
+            params.append(project_id)
+        
+        if start_date and end_date:
+            start_datetime = f"{start_date}T00:00:00+08:00"
+            end_datetime = f"{end_date}T23:59:59+08:00"
+            query += ' AND committed_date >= ? AND committed_date <= ?'
+            params.extend([start_datetime, end_datetime])
+        
+        query += ' ORDER BY committed_date DESC'
+        
+        cursor = self.connect().execute(query, params)
         return cursor.fetchall()
