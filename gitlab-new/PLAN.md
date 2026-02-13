@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS commits (
 2. 方法名：clone_commit
 3. 入参：project_id项目 ID
 
-### 2.2.2 获取Commit概要 TODO
+### 2.2.2 获取Commit概要
 1. 方法描述：获取指定项目列表（多条）、指定时间范围内Commit统计概要，包括总数、每个需求的处理情况
 2. 方法名：get_summary
 3. 入参：
@@ -166,52 +166,46 @@ CREATE TABLE IF NOT EXISTS commits (
 }
 ```
 
-### 2.3 按 Issue 统计 Commit
+### 2.2.3 根据 Commit 更新 Issue（TODO）
 
-**方法描述**：根据 Issue IID 获取关联的所有 Commit 信息。
+1. 方法描述：根据 Commit 作者更新对应 Issue 的指派人和标签。如果前端完成添加 `front::finished` 标签，后端完成添加 `backend::finished` 标签。
+2. 方法名：`update_issue_by_commit`
+3. 入参：2.2.2中获取的结论
+  - `project_id`: Issue项目ID,默认为4，（不是代码的Project）
+  - `issue_iid`: Issue IID (int)
+  - `author_name`: Commit 作者用户名 (str)
+  - `is_frontend`: 是否为前端提交 (bool)
+  - `is_backend`: 是否为后端提交 (bool)
 
-**方法名**：`get_commits_by_issue`
 
-**入参**：
-- `project_id`: 项目 ID (str/int)
-- `issue_iid`: Issue IID (int)
+## 三、Member/User管理
 
-**返回**：
-```json
-{
-  "issue_iid": 123,
-  "commits": [
-    {
-      "title": "提交标题",
-      "project": "项目名",
-      "author_name": "作者名",
-      "authored_date": "2025-01-15T10:30:00Z",
-      "committed_date": "2025-01-15T10:35:00Z"
-    }
-  ]
-}
+### 3.1 表结构
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    name TEXT,
+    state TEXT,
+    locked BOOLEAN,
+    avatar_url TEXT,
+    web_url TEXT,
+    alias TEXT, -- git commit中的别称,如果存在多个用逗号分割
+    updated_at TEXT
+)
 ```
 
-### 2.4 根据 Commit 更新 Issue
+### 3.2 方法
 
-**方法描述**：根据 Commit 作者更新对应 Issue 的指派人和标签。如果前端完成添加 `front_finished` 标签，后端完成添加 `backend_finished` 标签。
+#### 3.2.1 同步 Member
+1. 从client中获取当前组内所有用户，并插入或更新users表中
+2. 方法名：`update_issue_by_commit`
 
-**方法名**：`update_issue_by_commit`
-
-**入参**：
-- `project_id`: 项目 ID (str/int)
-- `issue_iid`: Issue IID (int)
-- `author_name`: Commit 作者用户名 (str)
-- `is_frontend`: 是否为前端提交 (bool)
-- `is_backend`: 是否为后端提交 (bool)
-
-**返回**：
-```json
-{
-  "success": true,
-  "updated": {
-    "issue_iid": 123,
-    "assignees": ["作者名"],
-    "added_labels": ["front_finished"]
+#### 3.2.2 更新 alias
+1. 用户手工更新alias到users，入参,key是users的username,value是别名
+  ```json
+  {
+    "hek": "He Kui, Hek"
   }
-}
+  ```
+2. 方法名：`update_alias`

@@ -15,7 +15,6 @@ import os
 
 from api.client import GitLabClient
 from db.database import get_database
-from user.manager import UserManager
 from config import Config
 
 
@@ -32,12 +31,6 @@ class IssueManager:
         self.config = config or Config()
         self.api_client = GitLabClient(self.config)
         self.db = get_database()
-        self.user_manager: Optional[UserManager] = None
-    
-    def _load_users(self, project_id: int):
-        """Load users for the project"""
-        if self.user_manager is None:
-            self.user_manager = UserManager(self.config, project_id)
     
     def clone_snapshot(self, project_id: int) -> Dict[str, Any]:
         """
@@ -441,8 +434,8 @@ def export_issues_to_csv(
 
 if __name__ == "__main__":
     # Example: Clone snapshot
-    # result = clone_snapshot(project_id=4)
-    # print(result)
+    result = clone_snapshot(project_id=4)
+    print(result)
 
     # Example: Export issues with specific columns only
     pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M']
