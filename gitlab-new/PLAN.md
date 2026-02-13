@@ -136,45 +136,16 @@ CREATE TABLE IF NOT EXISTS commits (
 2. 方法名：clone_commit
 3. 入参：project_id项目 ID
 
-### 2.2.2 获取Commit概要
-1. 方法描述：获取指定项目列表（多条）、指定时间范围内Commit统计概要，包括总数、每个需求的处理情况
-2. 方法名：get_summary
-3. 入参：
-  - `project_id_arr`: 项目ID List
-  - `start_date`: 开始日期 (格式: YYYY-MM-DD)
-  - `end_date`: 结束日期 (格式: YYYY-MM-DD)
-4. 返回：
-```json
-{
-  "total": 99,
-  "issue_list": [
-    {
-      "iid": 198,
-      "related_group_arr": ["front"],
-      "closed_group_arr": ["front", "server"],
-      "author_arr": ["zyh", "hek"],
-      "count": 2
-    },
-    {
-      "iid": 199,
-      "related_group_arr": ["front"],
-      "closed_group_arr": ["server"],
-      "author_arr": ["zyh", "hek"],
-      "count": 4
-    }
-  ]
-}
-```
-
-### 2.2.3 根据 Commit 更新 Issue（TODO）
+### 2.2.2 根据 Commit 更新 Issue（TODO）
 
 1. 方法描述：根据 Commit 作者更新对应 Issue 的指派人和标签。如果前端完成添加 `front::finished` 标签，后端完成添加 `backend::finished` 标签，同时根据提交人信息，通过别名获取id，执行指派人更新；
 2. 方法名：`sync_issue_by_commit`
 3. 入参：无
 4. 执行详情
-  - a. 执行get_summary，为固定常量，start_date为7天前，end_data为当日
-  - b. 解析get_summary结果，整理为update_issue的入参，一个issue调用1次
-  - c. 执行update_issue方法调用
+  - a. 执行db/commit.py/get_commits_needing_sync获取列表
+  - b. 实现类似get_summary的逻辑，将需要更新issue数据整理（一个issue一行，更新一次）
+  - c. 执行issue模块的update_issue方法
+  - d. 同步执行结果，将已更新的issue使用mark_issue_synced同步回数据库
 
 ### 2.3 数据库方法
 

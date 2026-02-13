@@ -143,40 +143,33 @@ class GitLabClient:
         issue.save()
         return self._issue_to_dict(issue)
     
-    def update_issue_assignees(
+    def append_issue_assignees(
         self, 
         project_id: int, 
         issue_iid: int, 
         assignees: List[str]
-    ) -> Dict[str, Any]:
+    ):
         """
         Update issue assignees by username
-        
         Args:
             project_id: Project ID
             issue_iid: Issue IID
-            assignees: List of assignee usernames
-            
+            assignees: List of assignee userIds
         Returns:
             Updated issue dictionary
         """
+        if not assignees or not issue_iid or len(assignees) == 0:
+            print(f"Warning! missing key params issue_iid={issue_iid},assignees={assignees}")
+            return None
         project = self.get_project(project_id)
         issue = project.issues.get(issue_iid)
-        
-        # Get user IDs from usernames
-        assignee_ids = []
-        for username in assignees:
-            try:
-                user = self.gl.users.list(username=username)[0]
-                assignee_ids.append(user.id)
-            except Exception as e:
-                print(f"Warning: Could not find user {username}: {e}")
-        
-        if assignee_ids:
-            issue.assignee_ids = assignee_ids
-            issue.save()
-        
-        return self._issue_to_dict(issue)
+        if not issue:
+            print(f"Warning! issue not found for {issue_iid}")
+            return None
+        ids_set = {int(item['id']) for item in issue.assignees}
+        ids_set.update(assignees)
+        issue.assignee_ids = list(ids_set)
+        return issue.save()
     
     def add_issue_labels(
         self, 

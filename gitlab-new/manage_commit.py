@@ -12,7 +12,7 @@ import re
 from api.client import GitLabClient
 from db.database import get_database
 from config import Config
-
+from manage_issue import IssueManager
 
 class CommitManager:
     """Manager for GitLab commit operations"""
@@ -204,103 +204,137 @@ class CommitManager:
     def _calculate_commit_rate(self, commit: Dict[str, Any]) -> str:
         return 'normal'
     
-    def get_summary(
-        self,
-        project_id_arr: list[int],
-        start_date: str,
-        end_date: str
-    ) -> Dict[str, Any]:
+    def sync_issue_by_commit(self) -> Dict[str, Any]:
         """
-        Get commits summary by issue within specified project list and date range
+        根据 Commit 作者更新对应 Issue 的指派人和标签。
         
-        Args:
-            project_id_arr: List of project IDs
-            start_date: Start date in format YYYY-MM-DD
-            end_date: End date in format YYYY-MM-DD
-            
+        指派人更新逻辑：
+        - 只要有 commit 关联到 issue，该 commit 的作者就会被指派
+        - 不受 commit operation 类型限制
+        - 通过别名将 author_name 映射到 GitLab 用户Id
+        
+        标签更新逻辑（仅当 operation=closed 时）：
+        - 如果前端组（front）有 operation=closed 的提交，添加 `front::finished` 标签
+        - 如果后端组（server）有 operation=closed 的提交，添加 `backend::finished` 标签
+        - 如果两者都有 operation=closed 的提交，同时添加两个标签
+        - 如果没有任何 operation=closed 的提交，不添加任何完成标签
+        
+        执行流程:
+        1. 执行db.get_commits_needing_sync获取需要同步的commit列表
+        2. 找出所有需要追加`front::finished`标签的issue列表
+        3. 找出所有需要追加`backend::finished`标签的issue列表
+        4. 为每个issue找到对应的userId列表
+        5. 执行issue模块的update_issue方法
+        6. 同步执行结果,将已更新的issue使用mark_issue_synced同步回数据库
+        
         Returns:
-            Dictionary containing total commits count and issue summary list
-            Format:
-            {
-                "total": 99,
-                "issue_list": [
-                    {
-                        "iid": 198,
-                        "related_group_arr": ["front"],
-                        "closed_group_arr": ["front", "server"],
-                        "author_arr": ["zyh", "hek"],
-                        "count": 2
-                    }
-                ]
-            }
+            Dictionary containing:
+            - total_issues_processed: Number of issues processed
+            - success: Number of successfully updated issues
         """
-        # Get commits from database
-        rows = self.db.get_commits_summary(project_id_arr, start_date, end_date)
+        print("🔄 Starting issue sync based on commits...")
         
-        # Initialize result structure
-        issue_stats: Dict[int, Dict[str, Any]] = {}
+        # Step 1: Get commits needing sync
+        commits = self.db.get_commits_needing_sync()
         
-        for row in rows:
-            commit = {
-                'group_name': row['group_name'],
-                'author_name': row['author_name'],
-                'issue_iid': row['issue_iid'],
-                'operation': row['operation']
+        if not commits:
+            print("✅ No commits need synchronization")
+            return {
+                'total_issues_processed': 0,
+                'success': 0
             }
+        
+        print(f"📊 Found {len(commits)} commits needing sync")
+        
+        # Initialize IssueManager for updating issues
+        issue_manager = IssueManager(self.config)
+        
+        # Step 2 & 3: Organize commits by project and issue
+        # Structure: {issue_iid: {'commit_ids': [], 'authors': set(), 'front_closed': bool, 'backend_closed': bool}}
+        issues_to_update = {}
+        
+        for commit in commits:
+            issue_iid_str = commit['issue_iid']
+            author_name = commit['author_name']
+            operation = commit['operation']
+            group_name = commit['group_name']
+            commit_id = commit['id']
             
-            # Handle multiple issue_iids (comma-separated)
-            issue_iids = []
-            if commit['issue_iid']:
-                issue_iids = [iid.strip() for iid in commit['issue_iid'].split(',') if iid.strip()]
+            # issue_iid can contain multiple issues separated by commas
+            issue_iids = [iid.strip() for iid in issue_iid_str.split(',') if iid.strip()]
+            user = self.db.get_user_by_alias(author_name)
             
-            # If no issue_iid, skip this commit
-            if not issue_iids:
-                continue
-            
-            # Process each issue_id
-            for iid_str in issue_iids:
-                try:
-                    iid = int(iid_str)
-                except (ValueError, TypeError):
-                    continue
-                
-                # Initialize issue stats if not exists
-                if iid not in issue_stats:
-                    issue_stats[iid] = {
-                        'iid': iid,
-                        'related_group_arr': [],
-                        'closed_group_arr': [],
-                        'author_arr': [],
-                        'count': 0
+            for issue_iid in issue_iids:
+                if issue_iid not in issues_to_update:
+                    issues_to_update[issue_iid] = {
+                        'commit_ids': [],
+                        'authors': set(),
+                        'front_closed': False,
+                        'backend_closed': False
                     }
                 
-                # Update statistics
-                stats = issue_stats[iid]
-                stats['count'] += 1
+                # Add commit ID
+                issues_to_update[issue_iid]['commit_ids'].append(commit_id)
                 
-                # Add group to related_group_arr (deduplicate later)
-                if commit['group_name'] and commit['group_name'] not in stats['related_group_arr']:
-                    stats['related_group_arr'].append(commit['group_name'])
+                # Add author
+                if user:
+                    issues_to_update[issue_iid]['authors'].add(user['id'])
                 
-                # Add group to closed_group_arr if operation is 'closed'
-                if commit['operation'] and commit['operation'].lower() == 'closed':
-                    if commit['group_name'] and commit['group_name'] not in stats['closed_group_arr']:
-                        stats['closed_group_arr'].append(commit['group_name'])
-                
-                # Add author (deduplicate later)
-                if commit['author_name'] and commit['author_name'] not in stats['author_arr']:
-                    stats['author_arr'].append(commit['author_name'])
+                # Check for operation=closed for label updates
+                if operation.lower() == 'closed':
+                    # Normalize group name for comparison
+                    if group_name and group_name.lower() == 'front':
+                        issues_to_update[issue_iid]['front_closed'] = True
+                    elif group_name and group_name.lower() == 'server':
+                        issues_to_update[issue_iid]['backend_closed'] = True
         
-        # Convert issue_stats dict to list
-        issue_list = list(issue_stats.values())
+        print(f"📋 Found {sum(len(issues) for issues in issues_to_update.values())} unique issues to update")
         
-        # Build result
-        result = {
-            'total': len(rows),
-            'issue_list': issue_list
+        # Step 4 & 5: Update each issue
+        total_issues_processed = 0
+        success_count = 0
+        all_synced_commit_ids = []
+
+        for issue_iid, issue_data in issues_to_update.items():
+            total_issues_processed += 1
+
+            userIds = list(set(issue_data['authors']))
+
+            # Step 5: Determine labels to add
+            labels_to_add = []
+            if issue_data['front_closed']:
+                labels_to_add.append('front::finished')
+            if issue_data['backend_closed']:
+                labels_to_add.append('backend::finished')
+            
+            print(f"   📝 Updating issue {issue_iid}")
+            print(f"      - Assignees: {userIds}")
+            print(f"      - Labels to add: {labels_to_add}")
+            
+            # Call issue_manager.update_issue
+            result = issue_manager.update_issue(
+                project_id=4,
+                issue_iid=int(issue_iid),
+                assignees=userIds if userIds else None,
+                labels=labels_to_add if labels_to_add else None
+            )
+            
+            if result.get('success'):
+                success_count += 1
+                all_synced_commit_ids.extend(issue_data['commit_ids'])
+                print(f"   ✅ Issue {issue_iid} updated successfully")
+            else:
+                print(f"   ❌ Failed to update issue {issue_iid}: {result.get('error', 'Unknown error')}")
+    
+        # Step 6: Mark commits as synced
+        if all_synced_commit_ids:
+            marked_count = self.db.mark_issue_synced(all_synced_commit_ids)
+            print(f"✅ Marked {marked_count} commits as synced")
+        
+        return {
+            'total_issues_processed': total_issues_processed,
+            'success': success_count
         }
-        
-        return result
 
 def clone_all_commit(project_id: int) -> int:
     manager = CommitManager()
@@ -309,5 +343,22 @@ def clone_all_commit(project_id: int) -> int:
     else:
         manager.clone_commit(project_id)
 
+
+def sync_issue_by_commit() -> Dict[str, Any]:
+    """
+    Convenience function: Sync issues based on commits
+    
+    Returns:
+        Dictionary containing sync statistics
+    """
+    manager = CommitManager()
+    return manager.sync_issue_by_commit()
+
+
 if __name__ == "__main__":
-    clone_all_commit(None)
+    # Example: Clone all commits
+    # clone_all_commit(None)
+    
+    # Example: Sync issues based on commits
+    result = sync_issue_by_commit()
+    print(f"{result['success']}/{result['total_issues_processed']}")

@@ -193,56 +193,28 @@ class IssueManager:
         Returns:
             Dictionary containing update result
         """
-        print(f"✏️  Updating issue {issue_iid} in project {project_id}...")
-        
-        # Load users for validation
-        self._load_users(project_id)
-        
-        # Validate assignees if provided
         if assignees:
-            valid_assignees = []
-            for username in assignees:
-                user = self.user_manager.get_user_by_username(username)
-                if user:
-                    valid_assignees.append(username)
-                else:
-                    print(f"⚠️  Warning: User '{username}' not found in project members")
-            
-            if not valid_assignees and assignees:
-                print(f"❌ Error: No valid assignees found")
-                return {
-                    "success": False,
-                    "error": "No valid assignees found"
-                }
-            
-            assignees = valid_assignees
-        
-        # Get current issue
+            try:
+                self.api_client.append_issue_assignees(project_id, issue_iid, assignees)
+            except Exception as e:
+                print(f"⚠️  Warning: Failed to update assignees: {e}")
+        if labels:
+            try:
+                self.api_client.add_issue_labels(
+                    project_id, 
+                    issue_iid,
+                    labels=labels
+                )
+            except Exception as e:
+                print(f"⚠️  Warning: Failed to update labels: {e}")
         try:
-            current_issue = self.api_client.get_issue(project_id, issue_iid)
+            updated_issue = self.api_client.get_issue(project_id, issue_iid)
         except Exception as e:
-            print(f"❌ Error fetching issue {issue_iid}: {e}")
+            print(f"❌ Error fetching updated issue {issue_iid}: {e}")
             return {
                 "success": False,
                 "error": str(e)
             }
-        
-        # Update assignees
-        if assignees:
-            self.api_client.update_issue_assignees(project_id, issue_iid, assignees)
-        
-        # Update labels
-        if labels:
-            self.api_client.update_issue(
-                project_id, 
-                issue_iid, 
-                description=current_issue.get('description'),
-                labels=labels
-            )
-        
-        # Get updated issue
-        updated_issue = self.api_client.get_issue(project_id, issue_iid)
-        
         result = {
             "success": True,
             "issue": {
@@ -251,10 +223,8 @@ class IssueManager:
                 "labels": updated_issue.get('labels', [])
             }
         }
-        
         print(f"✅ Issue {issue_iid} updated successfully")
         return result
-    
     
     def export_issues_to_csv(
         self,
