@@ -198,3 +198,22 @@ CREATE TABLE IF NOT EXISTS users (
   }
   ```
 2. 方法名：`update_alias`
+
+## 四、LLM管理TODO
+
+### 4.1 表结构
+
+```sql
+CREATE TABLE IF NOT EXISTS llm_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL, -- 类别: 日汇总、周汇总、提交评价
+    create_at TEXT NOT NULL, -- 汇总时间
+    req_content TEXT NOT NULL, -- 提交的内容
+    resp_content TEXT NOT NULL, -- llm响应内容（剔除thinking）
+    sucess BOOLEAN -- 请求是否成功
+)
+```
+
+### 4.2 设计
+1. 在api中新增llm_client.py，对外提供一个方法，向大模型提交type和req_content，获取resp_content
+2. 在db中新增llm_history.py，提供llm_history的单条插入，和resp_content更新

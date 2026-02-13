@@ -10,8 +10,9 @@ from .issue_main import IssueMainMixin
 from .issue_snapshot import IssueSnapshotMixin
 from .commits import CommitsMixin
 from .users import UsersMixin
+from .llm_history import LLMHistoryMixin
 
-class Database(IssueMainMixin, IssueSnapshotMixin, CommitsMixin, UsersMixin):
+class Database(IssueMainMixin, IssueSnapshotMixin, CommitsMixin, UsersMixin, LLMHistoryMixin):
     """Database manager for SQLite operations
     
     Inherits table-specific operations from mixin classes:
@@ -19,6 +20,7 @@ class Database(IssueMainMixin, IssueSnapshotMixin, CommitsMixin, UsersMixin):
     - IssueSnapshotMixin: issue_snapshot table operations
     - CommitsMixin: commits table operations
     - UsersMixin: users table operations
+    - LLMHistoryMixin: llm_history table operations
     """
     
     def __init__(self, db_path: str):
@@ -50,4 +52,5 @@ class Database(IssueMainMixin, IssueSnapshotMixin, CommitsMixin, UsersMixin):
         self._create_issue_snapshot_table()
         self._create_commits_table()
         self._create_users_table()
+        self._create_llm_history_table()
         print("✅ Database tables initialized")

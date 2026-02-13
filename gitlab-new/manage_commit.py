@@ -301,12 +301,12 @@ class CommitManager:
             userIds = list(set(issue_data['authors']))
 
             # Step 5: Determine labels to add
-            labels_to_add = []
+            labels_to_add = ['start::dev']
             if issue_data['front_closed']:
                 labels_to_add.append('front::finished')
             if issue_data['backend_closed']:
                 labels_to_add.append('backend::finished')
-            
+
             print(f"   📝 Updating issue {issue_iid}")
             print(f"      - Assignees: {userIds}")
             print(f"      - Labels to add: {labels_to_add}")
@@ -357,7 +357,7 @@ def sync_issue_by_commit() -> Dict[str, Any]:
 
 if __name__ == "__main__":
     # Example: Clone all commits
-    # clone_all_commit(None)
+    clone_all_commit(None)
     
     # Example: Sync issues based on commits
     result = sync_issue_by_commit()

@@ -14,7 +14,10 @@ class Config:
         self,
         base_url: Optional[str] = None,
         private_token: Optional[str] = None,
-        db_path: Optional[str] = None
+        db_path: Optional[str] = None,
+        llm_base_url: Optional[str] = None,
+        llm_api_key: Optional[str] = None,
+        llm_model: Optional[str] = None
     ):
         """
         Initialize configuration
@@ -23,6 +26,9 @@ class Config:
             base_url: GitLab base URL (default: from environment or https://gitlab.stpass.com)
             private_token: GitLab private token (default: from environment)
             db_path: SQLite database path (default: ./gitlab.db)
+            llm_base_url: LLM API base URL (default: from environment)
+            llm_api_key: LLM API key (default: from environment)
+            llm_model: LLM model name (default: from environment)
         """
         load_dotenv()
         self.base_url = base_url or os.getenv('GITLAB_BASE_URL', 'https://gitlab.stpass.com')
@@ -30,6 +36,11 @@ class Config:
         self.graphql_url = f"{self.base_url}/api/graphql"
         self.db_path = db_path or os.getenv('GITLAB_DB_PATH', './gitlab.db')
         self.ssl_verify = False  # Default to False for internal GitLab instances
+        
+        # LLM configuration
+        self.llm_base_url = llm_base_url or os.getenv('LLM_BASE_URL', 'http://localhost:11434')
+        self.llm_api_key = llm_api_key or os.getenv('LLM_API_KEY', '')
+        self.llm_model = llm_model or os.getenv('LLM_MODEL', 'qwen2.5:7b')
     
     def validate(self) -> bool:
         """
