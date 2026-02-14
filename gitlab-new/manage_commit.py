@@ -10,9 +10,11 @@ from zoneinfo import ZoneInfo
 import re
 
 from api.client import GitLabClient
+from api.llm_client import LLMClient
 from db.database import get_database
 from config import Config
 from manage_issue import IssueManager
+import json
 
 class CommitManager:
     """Manager for GitLab commit operations"""
@@ -335,6 +337,184 @@ class CommitManager:
             'total_issues_processed': total_issues_processed,
             'success': success_count
         }
+    
+    def _get_week_date_range(self, date: Optional[datetime] = None) -> tuple[str, str]:
+        """
+        获取指定日期所在周的周一和周日日期
+        
+        Args:
+            date: Reference date (defaults to current date)
+            
+        Returns:
+            Tuple of (monday_date, sunday_date) in YYYY-MM-DD format
+        """
+        if date is None:
+            date = datetime.now(ZoneInfo('Asia/Shanghai'))
+        
+        # Get Monday (weekday() returns 0 for Monday)
+        days_since_monday = date.weekday()
+        monday = date - timedelta(days=days_since_monday)
+        sunday = monday + timedelta(days=6)
+        
+        return monday.strftime('%Y-%m-%d'), sunday.strftime('%Y-%m-%d')
+    
+    def analyze_development_progress(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        project_ids: Optional[list[int]] = None
+    ) -> str:
+        """
+        分析指定时间段内commit记录,输出开发进度
+        
+        Args:
+            start_date: 开始日期 (格式: YYYY-MM-DD), 默认为本周一
+            end_date: 结束日期 (格式: YYYY-MM-DD), 默认为本周日
+            project_ids: 项目ID列表, 默认为None(查询所有项目)
+            
+        Returns:
+            格式化的开发进度报告字符串
+        """
+        print("🔄 Analyzing development progress...")
+        
+        # Step 1: Determine date range
+        if start_date is None:
+            start_date, end_date = self._get_week_date_range()
+        elif end_date is None:
+            # Default to one week if only start_date is provided
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = start_dt + timedelta(days=6)
+            end_date = end_dt.strftime('%Y-%m-%d')
+        
+        print(f"  Date range: {start_date} - {end_date}")
+        
+        # Step 2: Get all projects if not specified
+        if project_ids is None:
+            project_ids = [1, 8, 9, 6, 17, 10, 22, 25, 12, 7, 11]
+            print(f"  Projects: {len(project_ids)} projects")
+        
+        # Step 3: Query commits
+        commits = self.db.get_commits_summary(project_ids, start_date, end_date)
+        print(f"  ✅ Found {len(commits)} commits")
+        
+        if not commits:
+            return f"本周（{start_date} - {end_date}）完成了0次提交，暂无开发工作。"
+        
+        # Step 4: Aggregate statistics
+        total_commits = len(commits)
+        
+        # Collect all issue information
+        issue_info = {}  # {(project_id, issue_iid): dict with stats}
+        
+        for commit in commits:
+            issue_iid_str = commit['issue_iid'] if commit['issue_iid'] else None
+            if not issue_iid_str:
+                continue
+            
+            project_id = commit['project_id']
+            operation = commit['operation'].lower() if commit['operation'] else ''
+            group_name = commit['group_name'].lower() if commit['group_name'] else ''
+            
+            # Handle multiple issue_iids
+            issue_iids = [iid.strip() for iid in issue_iid_str.split(',') if iid.strip()]
+            
+            for issue_iid in issue_iids:
+                issue_key = (project_id, int(issue_iid))
+                
+                if issue_key not in issue_info:
+                    issue_info[issue_key] = {
+                        'total_count': 0,
+                        'related_count': 0,
+                        'closed_count': 0,
+                        'group': 'front' if group_name == 'front' else 'server' if group_name == 'server' else 'other'
+                    }
+                
+                issue_info[issue_key]['total_count'] += 1
+                
+                if operation == 'related':
+                    issue_info[issue_key]['related_count'] += 1
+                elif operation == 'closed':
+                    issue_info[issue_key]['closed_count'] += 1
+        
+        # Step 5: Count unique issues and completed issues
+        unique_issues = len(issue_info)
+        
+        # Count completed issues by group (unique issues with closed_count > 0)
+        completed_front = sum(1 for info in issue_info.values() 
+                             if info['group'] == 'front' and info['closed_count'] > 0)
+        completed_backend = sum(1 for info in issue_info.values() 
+                               if info['group'] == 'server' and info['closed_count'] > 0)
+        
+        print(f"  📊 Stats: {total_commits} commits, {unique_issues} issues, "
+              f"{completed_front + completed_backend} completed (front: {completed_front}, back: {completed_backend})")
+        
+        # Step 6: Get issue titles
+        issue_keys = list(issue_info.keys())
+        issue_iids_only = [issue_iid for _, issue_iid in issue_keys]
+        issue_titles = self.db.get_issue_titles(issue_iids_only)
+        
+        # Step 7: Prepare data for LLM
+        issues_data = []
+        for (project_id, issue_iid), info in issue_info.items():
+            title = issue_titles.get(issue_iid, f"Issue-{issue_iid}")
+            issues_data.append({
+                'title': title,
+                'group': info['group'],
+                'related_count': info['related_count'],
+                'closed_count': info['closed_count']
+            })
+        
+        # Sort by total count (most frequent first)
+        issues_data.sort(key=lambda x: x['related_count'] + x['closed_count'], reverse=True)
+        
+        llm_data = {
+            'total_commits': total_commits,
+            'unique_issues': unique_issues,
+            'completed_front': completed_front,
+            'completed_backend': completed_backend,
+            'issues': issues_data
+        }
+        
+        # Step 8: Generate LLM summary
+        llm_summary = "暂无详细总结"
+        try:
+            llm_client = LLMClient(self.config)
+            
+            prompt = f"""请根据以下开发数据生成简洁的中文总结（不超过200字），描述本周主要完成的工作内容：
+
+{json.dumps(llm_data, ensure_ascii=False, indent=2)}
+
+要求：
+1. 以自然语言总结主要功能和改进点
+2. 不要重复罗列issue标题
+3. 重点描述完成的功能和修复的问题
+4. 简洁明了突出重点"""
+            
+            create_at = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+            response, success = llm_client.generate_response(
+                type='开发进度总结',
+                req_content=prompt,
+                create_at=create_at,
+                db_instance=self.db
+            )
+            
+            if success:
+                llm_summary = response
+                print(f"  ✅ LLM summary generated")
+            else:
+                print(f"  ⚠️  LLM summary generation failed: {response}")
+            
+        except Exception as e:
+            print(f"  ⚠️  LLM summary generation error: {e}")
+        
+        # Step 9: Format output
+        output = (f"本周（{start_date} - {end_date}）完成了{total_commits}次提交，"
+                 f"关联{unique_issues}个issue,完成{completed_front + completed_backend}个issue开发"
+                 f"（前端{completed_front}个，后端{completed_backend}个），"
+                 f"主要处理内容为:{llm_summary}")
+        
+        print(f"✅ Development progress analysis completed")
+        return output
 
 def clone_all_commit(project_id: int) -> int:
     manager = CommitManager()
@@ -355,10 +535,46 @@ def sync_issue_by_commit() -> Dict[str, Any]:
     return manager.sync_issue_by_commit()
 
 
+def analyze_development_progress(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    project_ids: Optional[list[int]] = None
+) -> str:
+    """
+    Convenience function: Analyze development progress for a time period
+    
+    Args:
+        start_date: Start date (YYYY-MM-DD), defaults to this week's Monday
+        end_date: End date (YYYY-MM-DD), defaults to this week's Sunday
+        project_ids: List of project IDs, defaults to all projects
+        
+    Returns:
+        Formatted development progress report string
+        
+    Example:
+        # Analyze current week (default)
+        report = analyze_development_progress()
+        
+        # Analyze specific week
+        report = analyze_development_progress(
+            start_date="2025-02-10",
+            end_date="2025-02-16"
+        )
+        
+        # Analyze specific projects
+        report = analyze_development_progress(
+            project_ids=[4, 5]
+        )
+    """
+    manager = CommitManager()
+    return manager.analyze_development_progress(start_date, end_date, project_ids)
+
+
 if __name__ == "__main__":
     # Example: Clone all commits
-    clone_all_commit(None)
+    # clone_all_commit(None)
     
     # Example: Sync issues based on commits
-    result = sync_issue_by_commit()
-    print(f"{result['success']}/{result['total_issues_processed']}")
+    # result = sync_issue_by_commit()
+    # print(f"{result['success']}/{result['total_issues_processed']}")
+    print(analyze_development_progress())

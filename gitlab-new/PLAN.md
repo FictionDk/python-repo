@@ -199,7 +199,7 @@ CREATE TABLE IF NOT EXISTS users (
   ```
 2. 方法名：`update_alias`
 
-## 四、LLM管理TODO
+## 四、LLM管理
 
 ### 4.1 表结构
 
@@ -214,6 +214,24 @@ CREATE TABLE IF NOT EXISTS llm_history (
 )
 ```
 
-### 4.2 设计
-1. 在api中新增llm_client.py，对外提供一个方法，向大模型提交type和req_content，获取resp_content
-2. 在db中新增llm_history.py，提供llm_history的单条插入，和resp_content更新
+  ### 4.2 方法
+
+  #### 4.2.1 发送 LLM 请求
+  1. 方法描述：向大模型提交 type 和 req_content，获取 resp_content 并存储到数据库。请求时先插入初始记录到 llm_history 表，待 LLM 响应后更新 resp_content 和 sucess 状态；响应内容会自动剔除 <thinking>...</thinking> 标签内容。
+  2. 方法名：generate_response
+  3. 入参：
+     - `type`: 请求类型（例如：日汇总、周汇总、提交评价）
+     - `req_content`: 提交给 LLM 的请求内容
+     - `create_at`: 时间
+     - `db_instance`: 数据库实例，用于存储历史记录
+  4. 返回：
+     - `resp_content`: LLM 响应内容（已剔除 thinking）
+     - `sucess`: 请求是否成功
+
+  #### 4.2.2 查询 LLM 历史记录
+  1. 方法描述：查询指定条件的 LLM 历史记录，支持按类型过滤和数量限制
+  2. 方法名：get_llm_history
+  3. 入参：
+     - `limit`: 返回记录最大数量（可选）
+     - `type_filter`: 按类型过滤（可选）
+  4. 返回：历史记录列表

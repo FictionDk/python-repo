@@ -152,6 +152,25 @@ class IssueMainMixin:
             'milestone': row['milestone']
         }
     
+    def get_issue_titles(self, issue_iids: List[int], project_id: int = 4) -> Dict[int, str]:
+        """
+        批量获取issue标题
+        Returns:
+            Dictionary mapping issue_iid to issue title
+        """
+        if not issue_iids:
+            return {}
+        result = {}
+        placeholders = ','.join(['?' for _ in issue_iids])
+        query = f'''
+            SELECT iid, title FROM issue_main
+            WHERE project_id = ? AND iid IN ({placeholders})
+        '''
+        cursor = self.connect().execute(query, [project_id] + issue_iids)
+        for row in cursor.fetchall():
+            result[row['iid']] = row['title']
+        return result
+    
     def update_issue_main_fields(self, project_id: int, iid: int, updates: Dict[str, Any]):
         """
         Update specific fields in issue_main table
