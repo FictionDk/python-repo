@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Exports and output files
+exports/
+issues_summary.json
+stats_aggregated.json
+
+# Test files
+test.py
+test_llm.py
+
+# Documentation
+*.md
+DEBUG.md
+PLAN.md
+Instruction.md
+README.md
+
+# Docker
+Dockerfile
+.dockerignore
