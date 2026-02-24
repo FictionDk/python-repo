@@ -42,6 +42,7 @@ docker build -t gitlab-tasks:latest .
 ```bash
 docker run -d \
   --name gitlab-tasks \
+  --add-host=gitlab.stpass.com:192.168.110.18 \
   -v $(pwd)/.env:/app/.env:ro \
   -v $(pwd)/gitlab.db:/app/gitlab.db \
   gitlab-tasks:latest
@@ -54,6 +55,7 @@ docker run -d \
 ```bash
 docker run -d \
   --name gitlab-tasks \
+  --add-host=gitlab.stpass.com:192.168.110.18 \
   -v $(pwd)/.env:/app/.env:ro \
   -v $(pwd)/gitlab.db:/app/gitlab.db \
   -e PROJECT_ID=4 \
@@ -66,12 +68,7 @@ docker run -d \
 如果需要持久化导出的 CSV 文件：
 
 ```bash
-docker run -d \
-  --name gitlab-tasks \
-  -v $(pwd)/.env:/app/.env:ro \
-  -v $(pwd)/gitlab.db:/app/gitlab.db \
-  -v $(pwd)/exports:/app/exports \
-  gitlab-tasks:latest
+docker cp gitlab-tasks:/app/exports ./exports
 ```
 
 ## 📝 运行模式说明
