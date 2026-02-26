@@ -38,7 +38,7 @@ class CommitManager:
             Current time in format: 2026-02-12T15:32:00+08:00
         """
         now = datetime.now(ZoneInfo('Asia/Shanghai'))
-        return now.strftime('%Y-%m-%dT%H:%M:%S%z')
+        return now.isoformat()
     
     def _get_time_days_ago_utc8(self, days: int) -> str:
         """
@@ -51,7 +51,7 @@ class CommitManager:
             Time in format: 2026-02-12T15:32:00+08:00
         """
         time_ago = datetime.now(ZoneInfo('Asia/Shanghai')) - timedelta(days=days)
-        return time_ago.strftime('%Y-%m-%dT%H:%M:%S%z')
+        return time_ago.isoformat()
     
     def _parse_commit_operations(self, commit_message: str) -> tuple[str, Optional[str]]:
         """
@@ -480,7 +480,7 @@ class CommitManager:
         try:
             llm_client = LLMClient(self.config)
             
-            prompt = f"""请根据以下开发数据生成简洁的中文总结（不超过200字），描述本周主要完成的工作内容：
+            prompt = f"""请根据以下开发数据生成简洁的中文总结（建议不超过300字），描述本周主要完成的工作内容：
 
 {json.dumps(llm_data, ensure_ascii=False, indent=2)}
 
@@ -572,7 +572,7 @@ def analyze_development_progress(
 
 if __name__ == "__main__":
     # Example: Clone all commits
-    # clone_all_commit(None)
+    #clone_all_commit(None)
     
     # Example: Sync issues based on commits
     # result = sync_issue_by_commit()

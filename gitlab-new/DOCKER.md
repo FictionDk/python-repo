@@ -37,26 +37,13 @@ docker build -t gitlab-tasks:latest .
 
 ### 3. 运行容器
 
-#### 基本运行方式
+#### 运行方式
 
 ```bash
 docker run -d \
   --name gitlab-tasks \
   --add-host=gitlab.stpass.com:192.168.110.18 \
-  -v $(pwd)/.env:/app/.env:ro \
-  -v $(pwd)/gitlab.db:/app/gitlab.db \
-  gitlab-tasks:latest
-```
-
-#### 带项目 ID 的运行方式
-
-如果需要运行 `clone_snapshot` 任务，需要指定项目 ID：
-
-```bash
-docker run -d \
-  --name gitlab-tasks \
-  --add-host=gitlab.stpass.com:192.168.110.18 \
-  -v $(pwd)/.env:/app/.env:ro \
+  --env-file $(pwd)/.env \
   -v $(pwd)/gitlab.db:/app/gitlab.db \
   -e PROJECT_ID=4 \
   gitlab-tasks:latest \
