@@ -13,7 +13,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import os
 
-from api.client import GitLabClient
+from api.gl_client import GitLabClient
 from db.database import get_database
 from config import Config
 
@@ -402,20 +402,156 @@ def export_issues_to_csv(
     )
 
 
+
+def extract_id(text, is_story=True):
+    # 1. 去掉前3位模块名 (如 DOP, BCM)
+    temp = text[3:]
+    
+    # 2. 去掉紧随其后的分隔符 (- 或 :)
+    if temp.startswith(('-', ':')):
+        temp = temp[1:]
+        
+    # 3. 提取后面三位 (固定长度)
+    if is_story:
+        raw_id = temp[:3]
+    else:
+        raw_id = temp[:4]
+
+    # 4. 格式化处理
+    # 如果是纯数字，转为int再转回字符串（利用格式化自动补0）
+    # 如果包含字母（如 F103），则直接返回
+    if raw_id.isdigit():
+        # :03d 表示转成整数后，至少显示3位，不足补0
+        return f"{int(raw_id):03d}"
+    else:
+        return raw_id
+
+def export_csv(output_file, details):
+    """
+    Export issues details to CSV file
+    
+    Args:
+        output_file: Path to output CSV file (if None, auto-generate)
+        details: List of dictionaries containing issue details
+        
+    Returns:
+        Dictionary containing export result
+    """
+    # Generate default filename if not provided
+    if output_file is None:
+        output_file = f"exports/issues-detail-{datetime.now().strftime('%Y-%m-%d')}.csv"
+    
+    # Create directory if needed
+    output_dir = os.path.dirname(output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"📁 Created output directory: {output_dir}")
+    
+    if not details:
+        print(f"⚠️  No details data to export")
+        return {
+            "success": True,
+            "total_issues": 0,
+            "output_file": output_file
+        }
+    
+    # Get columns from first item
+    fieldnames = list(details[0].keys())
+    
+    print(f"📊 Found {len(details)} issue details to export")
+    print(f"📝 Exporting {len(fieldnames)} columns: {', '.join(fieldnames)}")
+    
+    # Write to CSV
+    try:
+        with open(output_file, 'w', newline='', encoding='utf-8-sig') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
+            writer.writeheader()
+            writer.writerows(details)
+        
+        print(f"✅ Successfully exported {len(details)} issue details to {output_file}")
+        return {
+            "success": True,
+            "total_issues": len(details),
+            "output_file": output_file
+        }
+    except Exception as e:
+        print(f"❌ Error exporting to CSV: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "total_issues": 0,
+            "output_file": output_file
+        }
+
+def export_issues_with_detail(
+    project_id: int,
+    output_file: str,
+    title_prefixes: Optional[List[str]] = None,
+    status_filters: Optional[List[str]] = None,
+    columns_to_export: Optional[List[str]] = None
+):
+    manager = IssueManager()
+    issues = manager.db.get_issues_with_filters(
+        project_id=project_id,
+        title_prefixes=title_prefixes,
+        status_filters=status_filters,
+        columns=columns_to_export
+    )
+    story_map = {str(item['iid']): item for item in issues if item['iid'] == item['parent_id']}
+    details = []
+    for issue in issues:
+        title = issue['title']
+        if issue['iid'] == issue['parent_id']:
+            match_id = extract_id(title)
+            details.append({
+                'iid': issue['iid'],
+                'story_id': match_id,
+                'story_title': issue['title'],
+                'fuction_id': '',
+                'fuction_title': '',
+                'latest_status': issue['latest_status'],
+                'milestone': issue['milestone']
+            })
+        else:
+            match_id = extract_id(title, False)
+            story_obj = story_map.get(str(issue['parent_id']))
+            story_title = story_obj['title']
+            story_match_id = extract_id(story_title)
+            details.append({
+                'iid': issue['iid'],
+                'story_id': story_match_id,
+                'story_title': story_title,
+                'fuction_id': match_id,
+                'fuction_title': issue['title'],
+                'latest_status': issue['latest_status'],
+                'milestone': issue['milestone']
+            })
+    # for d in details:
+    #     print(d)
+    export_csv(output_file, details)
+
 if __name__ == "__main__":
     # Example: Clone snapshot
-    result = clone_snapshot(project_id=4)
-    print(result)
+    # result = clone_snapshot(project_id=4)
+    # print(result)
 
     # Example: Export issues with specific columns only
+    # manager = IssueManager()
     pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M']
     status_filter = ["待开发","开发中","待修复","测试中","已完成"]
-    table_to_export = ["iid", "title", "latest_status", "assignees", "milestone"]
-    result = export_issues_to_csv(
+    table_to_export = ["iid", "parent_id", "title", "latest_status", "assignees", "milestone"]
+    # result = export_issues_to_csv(
+    #     project_id=4,
+    #     output_file=None,
+    #     title_prefixes=pre_filter,
+    #     status_filters=status_filter,
+    #     columns_to_export=table_to_export
+    # )
+    # print(result)
+    export_issues_with_detail(
         project_id=4,
         output_file=None,
         title_prefixes=pre_filter,
         status_filters=status_filter,
         columns_to_export=table_to_export
     )
-    print(result)

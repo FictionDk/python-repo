@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import re
 
-from api.client import GitLabClient
+from api.gl_client import GitLabClient
 from api.llm_client import LLMClient
 from db.database import get_database
 from config import Config
@@ -577,4 +577,4 @@ if __name__ == "__main__":
     # Example: Sync issues based on commits
     # result = sync_issue_by_commit()
     # print(f"{result['success']}/{result['total_issues_processed']}")
-    print(analyze_development_progress())
+    print(analyze_development_progress(start_date='2026-02-23',end_date='2026-03-01'))

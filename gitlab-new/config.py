@@ -17,7 +17,8 @@ class Config:
         db_path: Optional[str] = None,
         llm_base_url: Optional[str] = None,
         llm_api_key: Optional[str] = None,
-        llm_model: Optional[str] = None
+        llm_model: Optional[str] = None,
+        dingtalk_webhook_url: Optional[str] = None
     ):
         """
         Initialize configuration
@@ -29,6 +30,7 @@ class Config:
             llm_base_url: LLM API base URL (default: from environment)
             llm_api_key: LLM API key (default: from environment)
             llm_model: LLM model name (default: from environment)
+            dingtalk_webhook_url: DingTalk webhook URL (default: from environment)
         """
         load_dotenv()
         self.base_url = base_url or os.getenv('GITLAB_BASE_URL', 'https://gitlab.stpass.com')
@@ -41,6 +43,9 @@ class Config:
         self.llm_base_url = llm_base_url or os.getenv('LLM_BASE_URL', 'http://localhost:11434')
         self.llm_api_key = llm_api_key or os.getenv('LLM_API_KEY', '')
         self.llm_model = llm_model or os.getenv('LLM_MODEL', 'qwen2.5:7b')
+        
+        # DingTalk configuration
+        self.dingtalk_webhook_url = dingtalk_webhook_url or os.getenv('DINGTALK_WEBHOOK_URL', '')
     
     def validate(self) -> bool:
         """
