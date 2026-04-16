@@ -28,6 +28,7 @@ class IssueMainMixin:
                 issue_id TEXT,
                 latest_status TEXT DEFAULT '',
                 milestone TEXT DEFAULT '',
+                link_id TEXT DEFAULT '',
                 PRIMARY KEY (project_id, iid)
             )
         ''')
@@ -44,8 +45,8 @@ class IssueMainMixin:
         self.connect().execute('''
             INSERT OR REPLACE INTO issue_main (
                 project_id, iid, parent_id, title, description, state, labels, 
-                assignees, created_at, updated_at, issue_id, latest_status, milestone
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                assignees, created_at, updated_at, issue_id, latest_status, milestone, link_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             project_id,
             issue_data.get('iid'),
@@ -59,7 +60,8 @@ class IssueMainMixin:
             issue_data.get('updated_at'),
             issue_data.get('id'),
             issue_data.get('latest_status', ''),
-            issue_data.get('milestone', '')
+            issue_data.get('milestone', ''),
+            issue_data.get('link_id', '')
         ))
         self.connect().commit()
     
@@ -76,8 +78,8 @@ class IssueMainMixin:
             conn.execute('''
                 INSERT OR REPLACE INTO issue_main (
                     project_id, iid, parent_id, title, description, state, labels, 
-                    assignees, created_at, updated_at, issue_id, latest_status, milestone
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    assignees, created_at, updated_at, issue_id, latest_status, milestone, link_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 project_id,
                 issue.get('iid'),
@@ -91,7 +93,8 @@ class IssueMainMixin:
                 issue.get('updated_at'),
                 issue.get('id'),
                 issue.get('latest_status', ''),
-                issue.get('milestone').get('title','')
+                issue.get('milestone').get('title',''),
+                issue.get('link_id', '')
             ))
         conn.commit()
     
@@ -149,7 +152,8 @@ class IssueMainMixin:
             'updated_at': row['updated_at'],
             'issue_id': row['issue_id'],
             'latest_status': row['latest_status'],
-            'milestone': row['milestone']
+            'milestone': row['milestone'],
+            'link_id': row['link_id']
         }
     
     def get_issue_titles(self, issue_iids: List[int], project_id: int = 4) -> Dict[int, str]:
@@ -197,6 +201,10 @@ class IssueMainMixin:
         if 'parent_id' in updates:
             set_clauses.append('parent_id = ?')
             values.append(updates['parent_id'])
+        
+        if 'link_id' in updates:
+            set_clauses.append('link_id = ?')
+            values.append(updates['link_id'])
         
         if not set_clauses:
             return
@@ -257,7 +265,7 @@ class IssueMainMixin:
             valid_columns = [
                 'project_id', 'iid', 'parent_id', 'title', 'description',
                 'state', 'labels', 'assignees', 'created_at', 'updated_at',
-                'issue_id', 'latest_status', 'milestone'
+                'issue_id', 'latest_status', 'milestone', 'link_id'
             ]
             valid_columns_select = [col for col in columns if col in valid_columns]
             if not valid_columns_select:

@@ -3,8 +3,11 @@ Simple test script for GitLab API operations
 Run this file and modify parameters as needed
 """
 
-from api.client import GitLabClient
-from config import Config
+from api.gl_client import GitLabClient
+from graphql.client import get_issue_children, get_issue_linked_items
+
+
+
 
 # Initialize GitLab client
 # Make sure you have .env file with GITLAB_PRIVATE_TOKEN configured
@@ -99,6 +102,10 @@ def get_issue_info(project_id, issue_iid):
         return None
 
 
+def get_child_issue_test(issue_iid):
+    main_status, items = get_issue_children(issue_iid)
+    print(f"{main_status}, {items}")
+
 # ===================== Main Execution =====================
 if __name__ == "__main__":
     print("\n" + "="*60)
@@ -108,14 +115,17 @@ if __name__ == "__main__":
     # Uncomment the methods you want to use
     
     # 1. Test append_issue_assignees
-    result = test_append_issue_assignees()
+    # result = test_append_issue_assignees()
     
     # 2. Get project members to find user IDs
     # get_project_members(project_id=123)
     
     # 3. Get current issue info before testing
     # get_issue_info(project_id=123, issue_iid=456)
-    
+
+
+    get_child_issue_test(826)
+
     print(f"\n{'='*60}")
     print("Test completed")
     print("="*60 + "\n")

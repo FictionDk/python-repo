@@ -60,7 +60,7 @@ class IssueManager:
         print(f"✅ Fetched {issue_total} issues from REST API")
         
         # Create a mapping from iid to issue for easy lookup
-        issues_by_iid = {issue.get('iid'): issue for issue in issues_data}
+        #issues_by_iid = {issue.get('iid'): issue for issue in issues_data}
         
         # Step 2: Direct upsert into issue_main table (optimized - insert immediately after API fetch)
         # Track how many are new vs updated
@@ -71,7 +71,7 @@ class IssueManager:
         print(f"✅ Direct upsated {issue_total} issues to issue_main table (new: {issue_main_new})")
         
         # Step 3: Fetch GraphQL data to update parent_id, latest_status, milestone, and create snapshots
-        from graphql.client import get_issue_children
+        from graphql.client import get_issue_children, get_issue_linked_items
         print(f"🔍 Fetching parent-child relationships and status from GraphQL...")
         
         # Prepare updates for issue_main and snapshots for issue_snapshot
@@ -100,6 +100,21 @@ class IssueManager:
                     print(f"⚠️  Warning: Failed to get children for issue {issue_iid}: {e}")
                     latest_status = ''
             
+                issue_labels = issue.get('labels', [])
+                if 'Bug::dev' not in issue_labels:
+                    try:
+                        link_list = get_issue_linked_items('aladdinx/document/dev-design', issue_id)
+                        for linked_item in link_list:
+                            linked_iid = linked_item.get('iid')
+                            latest_status = linked_item.get('status')
+                            if linked_iid:
+                                self.db.update_issue_main_fields(
+                                    project_id, linked_iid,
+                                    {'link_id': issue_iid, 'latest_status': latest_status}
+                                )
+                    except Exception as e:
+                         print(f"⚠️  Warning: Failed to get linked for issue {issue_iid}: {e}")
+
             # Add snapshot for this issue
             snapshots.append({
                 'project_id': project_id,
@@ -401,30 +416,12 @@ def export_issues_to_csv(
         columns_to_export
     )
 
-
-
 def extract_id(text, is_story=True):
-    # 1. 去掉前3位模块名 (如 DOP, BCM)
-    temp = text[3:]
-    
-    # 2. 去掉紧随其后的分隔符 (- 或 :)
-    if temp.startswith(('-', ':')):
-        temp = temp[1:]
-        
-    # 3. 提取后面三位 (固定长度)
     if is_story:
-        raw_id = temp[:3]
+        raw_id = text[:6]
     else:
-        raw_id = temp[:4]
-
-    # 4. 格式化处理
-    # 如果是纯数字，转为int再转回字符串（利用格式化自动补0）
-    # 如果包含字母（如 F103），则直接返回
-    if raw_id.isdigit():
-        # :03d 表示转成整数后，至少显示3位，不足补0
-        return f"{int(raw_id):03d}"
-    else:
-        return raw_id
+        raw_id = text[:8]
+    return raw_id
 
 def export_csv(output_file, details):
     """
@@ -491,16 +488,22 @@ def export_issues_with_detail(
     columns_to_export: Optional[List[str]] = None
 ):
     manager = IssueManager()
+    # Ensure 'labels' column is included in the query
+    query_columns = list(columns_to_export) if columns_to_export else []
+    if 'labels' not in query_columns:
+        query_columns.append('labels')
     issues = manager.db.get_issues_with_filters(
         project_id=project_id,
         title_prefixes=title_prefixes,
         status_filters=status_filters,
-        columns=columns_to_export
+        columns=query_columns
     )
     story_map = {str(item['iid']): item for item in issues if item['iid'] == item['parent_id']}
     details = []
     for issue in issues:
         title = issue['title']
+        labels = issue.get('labels', [])
+        labels_str = ', '.join(labels) if isinstance(labels, list) else str(labels)
         if issue['iid'] == issue['parent_id']:
             match_id = extract_id(title)
             details.append({
@@ -510,22 +513,28 @@ def export_issues_with_detail(
                 'fuction_id': '',
                 'fuction_title': '',
                 'latest_status': issue['latest_status'],
-                'milestone': issue['milestone']
+                'milestone': issue['milestone'],
+                'labels': labels_str
             })
         else:
-            match_id = extract_id(title, False)
-            story_obj = story_map.get(str(issue['parent_id']))
-            story_title = story_obj['title']
-            story_match_id = extract_id(story_title)
-            details.append({
-                'iid': issue['iid'],
-                'story_id': story_match_id,
-                'story_title': story_title,
-                'fuction_id': match_id,
-                'fuction_title': issue['title'],
-                'latest_status': issue['latest_status'],
-                'milestone': issue['milestone']
-            })
+            try:
+                match_id = extract_id(title, False)
+                story_obj = story_map.get(str(issue['parent_id']))
+                story_title = story_obj['title']
+                story_match_id = extract_id(story_title)
+                details.append({
+                    'iid': issue['iid'],
+                    'story_id': story_match_id,
+                    'story_title': story_title,
+                    'fuction_id': match_id,
+                    'fuction_title': issue['title'],
+                    'latest_status': issue['latest_status'],
+                    'milestone': issue['milestone'],
+                    'labels': labels_str
+                })
+            except Exception as e1:
+                raise Exception(f"build fuction err, {e1}, id = {issue}")
+
     # for d in details:
     #     print(d)
     export_csv(output_file, details)
@@ -537,7 +546,7 @@ if __name__ == "__main__":
 
     # Example: Export issues with specific columns only
     # manager = IssueManager()
-    pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M']
+    pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M','BSC']
     status_filter = ["待开发","开发中","待修复","测试中","已完成"]
     table_to_export = ["iid", "parent_id", "title", "latest_status", "assignees", "milestone"]
     # result = export_issues_to_csv(
