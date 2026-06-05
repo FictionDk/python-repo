@@ -7,17 +7,15 @@ from typing import Optional
 
 # Import mixin classes for database operations
 from .issue_main import IssueMainMixin
-from .issue_snapshot import IssueSnapshotMixin
 from .commits import CommitsMixin
 from .users import UsersMixin
 from .llm_history import LLMHistoryMixin
 
-class Database(IssueMainMixin, IssueSnapshotMixin, CommitsMixin, UsersMixin, LLMHistoryMixin):
+class Database(IssueMainMixin, CommitsMixin, UsersMixin, LLMHistoryMixin):
     """Database manager for SQLite operations
     
     Inherits table-specific operations from mixin classes:
     - IssueMainMixin: issue_main table operations
-    - IssueSnapshotMixin: issue_snapshot table operations
     - CommitsMixin: commits table operations
     - UsersMixin: users table operations
     - LLMHistoryMixin: llm_history table operations
@@ -49,7 +47,6 @@ class Database(IssueMainMixin, IssueSnapshotMixin, CommitsMixin, UsersMixin, LLM
     def init_tables(self):
         """Initialize all database tables"""
         self._create_issue_main_table()
-        self._create_issue_snapshot_table()
         self._create_commits_table()
         self._create_users_table()
         self._create_llm_history_table()

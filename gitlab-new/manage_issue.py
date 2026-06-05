@@ -34,11 +34,11 @@ class IssueManager:
     
     def clone_snapshot(self, project_id: int) -> Dict[str, Any]:
         """
-        获取当前时间点项目 Issue 的详细信息快照，并存入本地 SQLite 数据库
+        获取当前时间点项目 Issue 的详细信息，并存入本地 SQLite 数据库
         优化流程：
         1. 从API中获取数据后直接插入或更新到issue_main
-        2. 拉取get_issue_children再更新issue_main的latest_status和parent_id，同时插入或更新issue_snapshot
-        
+        2. 拉取get_issue_children再更新issue_main的latest_status和parent_id
+
         Args:
             project_id: 项目 ID
 
@@ -46,60 +46,48 @@ class IssueManager:
             Dictionary containing:
             - issue_total: issue 总数
             - issue_main_new: issue_main 表此次新增数量
-            - issue_snapshot_new: issue_snapshot 表此次新增数量
-            - status_changed: 状态(status)变更的 issue 数量
         """
-        # Use current date as snapshot date
-        snapshot_at = datetime.now().strftime('%Y-%m-%d')
-        print(f"🔄 Cloning issue snapshot for project {project_id} from {snapshot_at}...")
-        
+        print(f"🔄 Cloning issue data for project {project_id}...")
+
         # Step 1: Get all issues from REST API (primary data source)
         issues_data = self.api_client.get_issues(project_id, all_issues=True)
-        
+
         issue_total = len(issues_data)
         print(f"✅ Fetched {issue_total} issues from REST API")
-        
-        # Create a mapping from iid to issue for easy lookup
-        #issues_by_iid = {issue.get('iid'): issue for issue in issues_data}
-        
-        # Step 2: Direct upsert into issue_main table (optimized - insert immediately after API fetch)
-        # Track how many are new vs updated
+
+        # Step 2: Direct upsert into issue_main table
         issues_before = len(self.db.get_all_issues_main(project_id))
         self.db.upsert_issues_main_batch(project_id, issues_data)
         issues_after = len(self.db.get_all_issues_main(project_id))
         issue_main_new = max(0, issues_after - issues_before)
-        print(f"✅ Direct upsated {issue_total} issues to issue_main table (new: {issue_main_new})")
-        
-        # Step 3: Fetch GraphQL data to update parent_id, latest_status, milestone, and create snapshots
+        print(f"✅ Direct upserted {issue_total} issues to issue_main table (new: {issue_main_new})")
+
+        # Step 3: Fetch GraphQL data to update parent_id, latest_status, milestone
         from graphql.client import get_issue_children, get_issue_linked_items
         print(f"🔍 Fetching parent-child relationships and status from GraphQL...")
-        
-        # Prepare updates for issue_main and snapshots for issue_snapshot
-        snapshots = []
-        
+
         total_issues = len(issues_data)
         processed = 0
-        
+
         for issue in issues_data:
             issue_id = issue.get('id')
             issue_iid = issue.get('iid')
             latest_status = ''
-            
+
             if issue_id:
                 try:
-                    # Get children info from GraphQL (this also gives us the parent's main_status)
                     main_status, children = get_issue_children(issue_id)
                     latest_status = main_status
                     for child in children:
                         child_iid = child.get('iid')
                         self.db.update_issue_main_fields(
-                            project_id, child_iid, 
+                            project_id, child_iid,
                             {'parent_id': issue_iid}
                         )
                 except Exception as e:
                     print(f"⚠️  Warning: Failed to get children for issue {issue_iid}: {e}")
                     latest_status = ''
-            
+
                 issue_labels = issue.get('labels', [])
                 if 'Bug::dev' not in issue_labels:
                     try:
@@ -115,44 +103,26 @@ class IssueManager:
                     except Exception as e:
                          print(f"⚠️  Warning: Failed to get linked for issue {issue_iid}: {e}")
 
-            # Add snapshot for this issue
-            snapshots.append({
-                'project_id': project_id,
-                'iid': issue_iid,
-                'status': latest_status,
-                'snapshot_at': snapshot_at
-            })
-            
             # Update this issue's latest_status in issue_main
             self.db.update_issue_main_fields(
                 project_id, issue_iid,
                 {'latest_status': latest_status}
             )
-            
+
             # Display progress every 10 issues or on completion
             processed += 1
             if processed % 10 == 0 or processed == total_issues:
                 print(f"   📊 Progress: {processed}/{total_issues} issues processed ({processed/total_issues:.1%})")
-        
-        # Step 4: Batch insert snapshots with status change detection
-        snapshot_stats = self.db.batch_insert_or_update_snapshots_with_status_change(snapshots)
-        print(f"✅ Processed {len(snapshots)} snapshots to issue_snapshot table:")
-        print(f"   - New statuses inserted: {snapshot_stats['inserted']}")
-        print(f"   - Existing statuses updated: {snapshot_stats['updated']}")
-        
-        # Step 5: Format response according to PLAN.md specification
+
         result = {
             "issue_total": issue_total,
             "issue_main_new": issue_main_new,
-            "issue_snapshot_new": snapshot_stats['inserted'],
-            "status_changed": snapshot_stats['inserted']
         }
-        
-        print(f"✅ Clone snapshot completed:")
+
+        print(f"✅ Clone completed:")
         print(f"   - Total issues: {issue_total}")
         print(f"   - New to issue_main: {issue_main_new}")
-        print(f"   - Status changes: {snapshot_stats['inserted']}")
-        
+
         return result
     
     def get_summary(
@@ -541,13 +511,14 @@ def export_issues_with_detail(
 
 if __name__ == "__main__":
     # Example: Clone snapshot
-    # result = clone_snapshot(project_id=4)
-    # print(result)
+    result = clone_snapshot(project_id=4)
+    print(result)
 
     # Example: Export issues with specific columns only
     # manager = IssueManager()
-    pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M','BSC']
-    status_filter = ["待开发","开发中","待修复","测试中","已完成"]
+    pre_filter = ['STM','BCM','IDM','QSM','DMM','DOP','QMS','CYLIMS','D3M','BSC','LIMS']
+    # status_filter = ["待开发","开发中","待修复","测试中","已完成","不需要解决"]
+    status_filter = []
     table_to_export = ["iid", "parent_id", "title", "latest_status", "assignees", "milestone"]
     # result = export_issues_to_csv(
     #     project_id=4,
