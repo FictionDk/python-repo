@@ -94,6 +94,47 @@ class ZanthAES(object):
         # If the tag does not match an InvalidTag exception will be raised.
         return decryptor.update(ciphertext) + decryptor.finalize()
 
+    def _cbc_encrypt(self, key, plaintext):
+        """对内容加密(CBC)
+        Args:
+            key: 处理密钥
+            plaintext: 需要加密的明文 (bytes)
+        Returns: 返回初始化向量(iv)和密文
+        """
+        key = self._add_to_16(key)
+        # Generate a random 16-byte IV.
+        iv = os.urandom(16)
+        # Construct an AES-CBC Cipher object with the given key and IV.
+        encryptor = Cipher(
+            algorithms.AES(key),
+            modes.CBC(iv),
+            backend=default_backend()
+        ).encryptor()
+        # Encrypt the plaintext and get the associated ciphertext.
+        # CBC requires padding.
+        ciphertext = encryptor.update(pad(plaintext, AES.block_size)) + encryptor.finalize()
+        return (iv, ciphertext)
+
+    def _cbc_decrypt(self, key, iv, ciphertext):
+        """对内容解密(CBC)
+        Args:
+            key: 处理密钥
+            iv: 初始化向量
+            ciphertext: 需要解密的密文
+        Returns: 返回解密后的明文
+        """
+        key = self._add_to_16(key)
+        # Construct a Cipher object, with the key and iv.
+        decryptor = Cipher(
+            algorithms.AES(key),
+            modes.CBC(iv),
+            backend=default_backend()
+        ).decryptor()
+        # Decrypt the ciphertext.
+        padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+        # Remove padding
+        return unpad(padded_plaintext, AES.block_size)
+
     def set_key(self, key):
         self.__key = key
 
@@ -106,10 +147,16 @@ class ZanthAES(object):
         key = self.__key
         if self.__mode == 'ECB':
             return self._ecb_encrypt(text, key)
-        else:
+        elif self.__mode == 'GCM':
             text = text.encode('utf-8')
             iv, ciphertext, tag = self._gcm_encrypt(key, text, self.__ass)
             return b64encode(iv + ciphertext + tag).decode('utf-8')
+        elif self.__mode == 'CBC':
+            text = text.encode('utf-8')
+            iv, ciphertext = self._cbc_encrypt(key, text)
+            return b64encode(iv + ciphertext).decode('utf-8')
+        else:
+            raise KeyError(f"{self.__mode} NOT SUPPORT")
 
     def decrypt(self, text):
         '''对内容解密(默认)
@@ -120,32 +167,40 @@ class ZanthAES(object):
         key = self.__key
         if self.__mode == 'ECB':
             return self._ecb_decrypt(text, key)
-        else:
+        elif self.__mode == 'GCM':
             text = b64decode(text)
             iv = text[0:12]
             tag = text[-16:]
             content = text[12:-16]
             return str(self._gcm_decrypt(key, self.__ass, iv, content, tag))
+        elif self.__mode == 'CBC':
+            text = b64decode(text)
+            print(f"-------> {text}")
+            iv = text[0:16]
+            ciphertext = text[16:]
+            return str(self._cbc_decrypt(key, iv, ciphertext), encoding='utf-8')
+        else:
+            raise KeyError(f"{self.__mode} NOT SUPPORT")
 
 def test():
-    aes = ZanthAES(mode='ECB')
+    aes = ZanthAES(mode='CBC', key="xyAbc,123.")
     text = "32048319880206262X"
     result = aes.encrypt(text)
     print(result)
     print(aes.decrypt(result))
 
-    pw = 'P2wQjONezpgsHlS3fH82tA=='
-    ip = 'FefiwaUvyZXtzdxe2xWdOw=='
+    pw = 'ARBBb5HrvfS2hsrjnlqk4Xq4ba9H2sMtKnG8Ei+RH72J+lgLgY87zoPnAtTrZ4Vh/glwK3yMhCzcv9JfpAV7JYgjJNuk5NiwCwC9OuBCJfqnDd/hH0Q8N2I5HgqvK+2nQAC/pTbkStpaTV8cfko='
+    # ip = 'FefiwaUvyZXtzdxe2xWdOw=='
     print(aes.decrypt(pw))
-    print(aes.decrypt(ip))
+    # print(aes.decrypt(ip))
 
-    ip = '120.78.189.52'
-    pw = 's2e6LXfmEcd3$1dF'
-    print(aes.encrypt(ip))
-    print(aes.encrypt(pw))
+    # ip = '120.78.189.52'
+    # pw = 's2e6LXfmEcd3$1dF'
+    # print(aes.encrypt(ip))
+    # print(aes.encrypt(pw))
 
-    data = '{"UserName": "cy_rfid", "UserPassword": "cy_02024"}'
-    aes.set_key('shinow90')
-    print(aes.encrypt(data))
+    # data = '{"UserName": "cy_rfid", "UserPassword": "cy_02024"}'
+    # aes.set_key('shinow90')
+    # print(aes.encrypt(data))
 
 test()
